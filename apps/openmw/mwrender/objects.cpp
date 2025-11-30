@@ -2,11 +2,14 @@
 
 #include <osg/Group>
 #include <osg/UserDataContainer>
+#include <osgUtil/Optimizer>
+#include <osg/MatrixTransform>
 
 #include <components/misc/resourcehelpers.hpp>
 #include <components/misc/strings/algorithm.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/unrefqueue.hpp>
+#include <components/esm/defs.hpp>
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/ptr.hpp"
@@ -143,6 +146,9 @@ namespace MWRender
         if (!ptr.getRefData().getBaseNode())
             return true;
 
+        if ((ptr.getRefData().getBaseNode()->getNodeMask() & Mask_BakedOriginal) != 0)
+            restoreCell(ptr.getCell());
+
         const auto iter = mObjects.find(ptr.mRef);
         if (iter != mObjects.end())
         {
@@ -168,6 +174,8 @@ namespace MWRender
 
     void Objects::removeCell(const MWWorld::CellStore* store)
     {
+        mBakedNodes.erase(store);
+
         for (PtrAnimationMap::iterator iter = mObjects.begin(); iter != mObjects.end();)
         {
             MWWorld::Ptr ptr = iter->second->getPtr();
@@ -201,6 +209,9 @@ namespace MWRender
         osg::ref_ptr<osg::Node> objectNode = cur.getRefData().getBaseNode();
         if (!objectNode)
             return;
+
+        if ((objectNode->getNodeMask() & Mask_BakedOriginal) != 0)
+            restoreCell(old.getCell());
 
         MWWorld::CellStore* newCell = cur.getCell();
 
@@ -249,6 +260,93 @@ namespace MWRender
             return iter->second;
 
         return nullptr;
+    }
+
+    void Objects::optimizeCell(const MWWorld::CellStore* store)
+    {
+        if (mBakedNodes.find(store) != mBakedNodes.end())
+            return;
+
+        CellMap::iterator it = mCellSceneNodes.find(store);
+        if (it == mCellSceneNodes.end())
+            return;
+        osg::Group* cellRoot = it->second;
+
+        osg::ref_ptr<osg::Group> bakeGroup = new osg::Group;
+        bool anyAdded = false;
+
+        for (unsigned int i = 0; i < cellRoot->getNumChildren(); ++i)
+        {
+            osg::Node* node = cellRoot->getChild(i);
+            osg::UserDataContainer* udc = node->getUserDataContainer();
+            if (!udc)
+                continue;
+
+            PtrHolder* ph = nullptr;
+            for (unsigned int j = 0; j < udc->getNumUserObjects(); ++j)
+            {
+                ph = dynamic_cast<PtrHolder*>(udc->getUserObject(j));
+                if (ph)
+                    break;
+            }
+            if (!ph)
+                continue;
+
+            MWWorld::Ptr ptr = ph->mPtr;
+            if (ptr.getType() != ESM::REC_STAT)
+                continue;
+            if (!ptr.getClass().getScript(ptr).empty())
+                continue;
+            if (!ptr.getRefData().isEnabled())
+                continue;
+
+            // Clone the subgraph (Deep copy to allow flattening/merging without affecting original)
+            osg::ref_ptr<osg::Node> clone = node->clone(osg::CopyOp::DEEP_COPY_ALL);
+            if (clone)
+            {
+                bakeGroup->addChild(clone);
+                node->setNodeMask(Mask_BakedOriginal);
+                anyAdded = true;
+            }
+        }
+
+        if (anyAdded)
+        {
+            osgUtil::Optimizer optimizer;
+            optimizer.optimize(bakeGroup, osgUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS
+                    | osgUtil::Optimizer::REMOVE_REDUNDANT_NODES | osgUtil::Optimizer::MERGE_GEOMETRY
+                    | osgUtil::Optimizer::MAKE_COMPLETELY_LEAF);
+
+            // Visible to camera, and maybe shadows (Mask_Static included in shadow mask)
+            bakeGroup->setNodeMask(Mask_BakedVisual | Mask_Static);
+            cellRoot->addChild(bakeGroup);
+            mBakedNodes[store] = bakeGroup;
+        }
+    }
+
+    void Objects::restoreCell(const MWWorld::CellStore* store)
+    {
+        auto it = mBakedNodes.find(store);
+        if (it == mBakedNodes.end())
+            return;
+
+        CellMap::iterator itCell = mCellSceneNodes.find(store);
+        if (itCell != mCellSceneNodes.end())
+        {
+            itCell->second->removeChild(it->second);
+
+            // Restore masks
+            osg::Group* cellRoot = itCell->second;
+            for (unsigned int i = 0; i < cellRoot->getNumChildren(); ++i)
+            {
+                osg::Node* node = cellRoot->getChild(i);
+                if ((node->getNodeMask() & Mask_BakedOriginal) != 0)
+                {
+                    node->setNodeMask(Mask_Object);
+                }
+            }
+        }
+        mBakedNodes.erase(it);
     }
 
 }

@@ -56,11 +56,15 @@ namespace MWRender
         Mask_Lighting = (1 << 19),
 
         Mask_Groundcover = (1 << 20),
+
+        // Baked static geometry
+        Mask_BakedVisual = (1 << 21),
+        Mask_BakedOriginal = (1 << 22),
     };
 
     // Defines masks to remove when using ToggleWorld command
     constexpr inline unsigned int sToggleWorldMask
-        = Mask_Actor | Mask_Terrain | Mask_Object | Mask_Static | Mask_Groundcover;
+        = Mask_Actor | Mask_Terrain | Mask_Object | Mask_Static | Mask_Groundcover | Mask_BakedVisual;
 
 }
 

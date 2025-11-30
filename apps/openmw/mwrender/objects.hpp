@@ -89,7 +89,12 @@ namespace MWRender
         /// Updates containing cell for object rendering data
         void updatePtr(const MWWorld::Ptr& old, const MWWorld::Ptr& cur);
 
+        void optimizeCell(const MWWorld::CellStore* store);
+        void restoreCell(const MWWorld::CellStore* store);
+
     private:
+        std::map<const MWWorld::CellStore*, osg::ref_ptr<osg::Node>> mBakedNodes;
+
         void operator=(const Objects&);
         Objects(const Objects&);
     };
