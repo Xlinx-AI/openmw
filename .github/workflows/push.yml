@@ -103,11 +103,15 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        image:
-        - "2022"
+        include:
+          - image: "2019"
+            msvc: "2019"
+          - image: "2022"
+            msvc: "2022"
 
     uses: ./.github/workflows/windows.yml
     with:
       image: ${{ matrix.image }}
+      msvc: ${{ matrix.msvc }}
       vcpkg-deps-tag: ${{ needs.Output-Envs.outputs.VCPKG_DEPS_TAG }}
       build-type: ${{ needs.Output-Envs.outputs.BUILD_TYPE }}

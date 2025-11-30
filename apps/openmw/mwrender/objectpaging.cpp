@@ -824,7 +824,7 @@ namespace MWRender
 
             const AnalyzeVisitor::Result& analyzeResult = pair.second.mAnalyzeResult;
 
-            const float mergeCost = analyzeResult.mNumVerts * size;
+            const float mergeCost = analyzeResult.mNumVerts * (size < 1.f ? size : 1.f);
             const float mergeBenefit = analyzeVisitor.getMergeBenefit(analyzeResult) * mMergeFactor;
             const bool merge = mergeBenefit > mergeCost;
 
@@ -929,7 +929,7 @@ namespace MWRender
             if (size > 1 / 8.f)
             {
                 optimizer.setViewPoint(relativeViewPoint);
-                optimizer.setMergeAlphaBlending(true);
+                optimizer.setMergeAlphaBlending(false);
             }
             optimizer.setIsOperationPermissibleForObjectCallback(new CanOptimizeCallback);
             const unsigned int options = SceneUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS
