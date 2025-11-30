@@ -777,6 +777,8 @@ namespace MWRender
 
         mWater->changeCell(store);
 
+        mObjects->optimizeCell(store);
+
         if (store->getCell()->isExterior())
         {
             enableTerrain(true, store->getCell()->getWorldSpace());
@@ -1203,7 +1205,7 @@ namespace MWRender
 
         unsigned int mask = ~0u;
         mask &= ~(Mask_RenderToTexture | Mask_Sky | Mask_Debug | Mask_Effect | Mask_Water | Mask_SimpleWater
-            | Mask_Groundcover);
+            | Mask_Groundcover | Mask_BakedVisual);
         if (ignorePlayer)
             mask &= ~(Mask_Player);
         if (ignoreActors)
