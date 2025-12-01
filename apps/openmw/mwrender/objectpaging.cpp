@@ -12,6 +12,7 @@
 #include <osgParticle/ParticleProcessor>
 #include <osgParticle/ParticleSystemUpdater>
 #include <osgUtil/IncrementalCompileOperation>
+#include <osgUtil/Simplifier>
 
 #include <components/esm3/esmreader.hpp>
 #include <components/esm3/loadacti.hpp>
@@ -753,22 +754,70 @@ namespace MWRender
                 }
             }
 
+            osg::ref_ptr<const osg::Node> cnode;
+            bool usedGeneratedLOD = false;
+
             if (!activeGrid)
             {
-                std::lock_guard<std::mutex> lock(mLODNameCacheMutex);
-                LODNameCacheKey key{ model, lod };
-                LODNameCache::const_iterator found = mLODNameCache.lower_bound(key);
-                if (found != mLODNameCache.end() && found->first == key)
-                    model = found->second;
+                VFS::Path::Normalized lodModel = model;
+                {
+                    std::lock_guard<std::mutex> lock(mLODNameCacheMutex);
+                    LODNameCacheKey key{ model, lod };
+                    LODNameCache::const_iterator found = mLODNameCache.lower_bound(key);
+                    if (found != mLODNameCache.end() && found->first == key)
+                        lodModel = found->second;
+                    else
+                        lodModel = mLODNameCache
+                                    .emplace_hint(found, std::move(key),
+                                        Misc::ResourceHelpers::getLODMeshName(world.getESMVersions()[refNum.mContentFile],
+                                            model, *mSceneManager->getVFS(), lod))
+                                    ->second;
+                }
+
+                if (lodModel == model && lod > 0)
+                {
+                    std::lock_guard<std::mutex> lock(mGeneratedLODMutex);
+                    LODNameCacheKey key{ model, lod };
+                    auto found = mGeneratedLODCache.find(key);
+                    if (found != mGeneratedLODCache.end())
+                    {
+                        cnode = found->second;
+                        usedGeneratedLOD = true;
+                    }
+                    else
+                    {
+                        osg::ref_ptr<const osg::Node> originalTemplate = mSceneManager->getTemplate(model, false);
+                        if (originalTemplate && originalTemplate->getDataVariance() == osg::Object::STATIC)
+                        {
+                            osg::ref_ptr<osg::Node> clone = osg::clone(originalTemplate.get(), 
+                                osg::CopyOp::DEEP_COPY_NODES | osg::CopyOp::DEEP_COPY_DRAWABLES | osg::CopyOp::DEEP_COPY_PRIMITIVES | osg::CopyOp::DEEP_COPY_ARRAYS);
+                            
+                            float ratio = 1.0f;
+                            if (lod == 1) ratio = 0.4f;
+                            else if (lod == 2) ratio = 0.2f;
+                            else ratio = 0.1f;
+
+                            osgUtil::Simplifier simplifier(ratio);
+                            simplifier.setSmoothing(true);
+                            clone->accept(simplifier);
+                            
+                            SceneUtil::Optimizer optimizer;
+                            optimizer.optimize(clone, SceneUtil::Optimizer::DEFAULT_OPTIMIZATIONS);
+
+                            cnode = clone;
+                            mGeneratedLODCache[key] = cnode;
+                            usedGeneratedLOD = true;
+                        }
+                    }
+                }
                 else
-                    model = mLODNameCache
-                                .emplace_hint(found, std::move(key),
-                                    Misc::ResourceHelpers::getLODMeshName(world.getESMVersions()[refNum.mContentFile],
-                                        model, *mSceneManager->getVFS(), lod))
-                                ->second;
+                {
+                    model = lodModel;
+                }
             }
 
-            osg::ref_ptr<const osg::Node> cnode = mSceneManager->getTemplate(model, false);
+            if (!usedGeneratedLOD)
+                cnode = mSceneManager->getTemplate(model, false);
 
             if (activeGrid)
             {
@@ -1072,10 +1121,16 @@ namespace MWRender
 
     void ObjectPaging::clear()
     {
-        std::lock_guard<std::mutex> lock(mRefTrackerMutex);
-        mRefTrackerNew.mDisabled.clear();
-        mRefTrackerNew.mBlacklist.clear();
-        mRefTrackerLocked = true;
+        {
+            std::lock_guard<std::mutex> lock(mRefTrackerMutex);
+            mRefTrackerNew.mDisabled.clear();
+            mRefTrackerNew.mBlacklist.clear();
+            mRefTrackerLocked = true;
+        }
+        {
+            std::lock_guard<std::mutex> lock(mGeneratedLODMutex);
+            mGeneratedLODCache.clear();
+        }
     }
 
     bool ObjectPaging::unlockCache()

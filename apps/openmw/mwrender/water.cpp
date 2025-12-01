@@ -539,6 +539,7 @@ namespace MWRender
             const unsigned int rttSize = Settings::water().mRttSize;
 
             mReflection = new Reflection(rttSize, mInterior);
+            mReflection->setUpdateRate(2);
             mReflection->setWaterLevel(mTop);
             mReflection->setScene(mSceneRoot);
             if (mCullCallback)
@@ -548,6 +549,7 @@ namespace MWRender
             if (Settings::water().mRefraction)
             {
                 mRefraction = new Refraction(rttSize);
+                mRefraction->setUpdateRate(2);
                 mRefraction->setWaterLevel(mTop);
                 mRefraction->setScene(mSceneRoot);
                 if (mCullCallback)

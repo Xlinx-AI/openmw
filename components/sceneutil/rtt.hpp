@@ -81,6 +81,8 @@ namespace SceneUtil
         void setColorBufferInternalFormat(GLint internalFormat);
         void setDepthBufferInternalFormat(GLint internalFormat);
 
+        void setUpdateRate(unsigned int divisor) { mUpdateRateDivisor = divisor; }
+
     protected:
         bool shouldDoPerViewMapping();
         bool shouldDoTextureArray();
@@ -111,6 +113,7 @@ namespace SceneUtil
         int mRenderOrderNum;
         StereoAwareness mStereoAwareness;
         bool mAddMSAAIntermediateTarget;
+        unsigned int mUpdateRateDivisor = 1;
     };
 }
 #endif
