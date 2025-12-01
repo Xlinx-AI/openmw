@@ -933,7 +933,7 @@ namespace MWRender
             }
             optimizer.setIsOperationPermissibleForObjectCallback(new CanOptimizeCallback);
             const unsigned int options = SceneUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS
-                | SceneUtil::Optimizer::REMOVE_REDUNDANT_NODES | SceneUtil::Optimizer::MERGE_GEOMETRY;
+                | SceneUtil::Optimizer::REMOVE_REDUNDANT_NODES | SceneUtil::Optimizer::MERGE_GEOMETRY | SceneUtil::Optimizer::ENABLE_BACKFACE_CULLING;
 
             optimizer.optimize(mergeGroup, options);
 
