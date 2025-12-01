@@ -1315,7 +1315,16 @@ namespace SceneUtil
                     mLightList.push_back(&light);
             }
 
-            const size_t maxLights = mLightManager->getMaxLights() - mLightManager->getStartLight();
+            size_t maxLights = mLightManager->getMaxLights() - mLightManager->getStartLight();
+
+            // Virtual Lighting: Reduce light count for distant objects to improve performance in large scenes
+            float dist = nodeBound.center().length();
+            if (dist > 3000.0f) 
+                maxLights = std::min(maxLights, size_t(0));
+            else if (dist > 1500.0f)
+                maxLights = std::min(maxLights, size_t(1));
+            else if (dist > 750.0f) 
+                maxLights = std::min(maxLights, size_t(2));
 
             if (mLightList.size() > maxLights)
             {

@@ -100,6 +100,7 @@ class Optimizer
             INDEX_MESH =                (1 << 18),
             VERTEX_POSTTRANSFORM =      (1 << 19),
             VERTEX_PRETRANSFORM =       (1 << 20),
+            ENABLE_BACKFACE_CULLING =   (1 << 21),
             DEFAULT_OPTIMIZATIONS = FLATTEN_STATIC_TRANSFORMS |
                                 REMOVE_REDUNDANT_NODES |
                                 REMOVE_LOADED_PROXY_NODES |
@@ -372,6 +373,18 @@ class Optimizer
 
                 void removeRedundantNodes();
 
+        };
+
+        /** Enable backface culling for large objects. */
+        class BackfaceCullingVisitor : public BaseOptimizerVisitor
+        {
+            public:
+                BackfaceCullingVisitor(Optimizer* optimizer=0) :
+                    BaseOptimizerVisitor(optimizer, ENABLE_BACKFACE_CULLING) {}
+
+                void apply(osg::Geometry& geometry) override;
+                void apply(osg::Group& group) override;
+                void apply(osg::Node& node) override;
         };
 
         /** Merge adjacent Groups that have the same StateSet. */

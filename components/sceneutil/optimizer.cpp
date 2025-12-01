@@ -27,6 +27,7 @@
 #include <osg/Timer>
 #include <osg/io_utils>
 #include <osg/Depth>
+#include <osg/CullFace>
 
 #include <osgDB/SharedStateManager>
 
@@ -140,6 +141,13 @@ void Optimizer::optimize(osg::Node* node, unsigned int options)
         VertexAccessOrderVisitor vaov;
         node->accept(vaov);
         vaov.optimizeOrder();
+    }
+
+    if (options & ENABLE_BACKFACE_CULLING)
+    {
+        OSG_INFO<<"Optimizer::optimize() doing ENABLE_BACKFACE_CULLING"<<std::endl;
+        BackfaceCullingVisitor bcv(this);
+        node->accept(bcv);
     }
 
     if (osg::getNotifyLevel()>=osg::INFO)
@@ -2055,6 +2063,46 @@ void Optimizer::MergeGroupsVisitor::apply(osg::Group &group)
             }
         }
         traverse(group);
+    }
+}
+
+void Optimizer::BackfaceCullingVisitor::apply(osg::Geometry& geometry)
+{
+    if (!isOperationPermissibleForObject(&geometry)) return;
+
+    // Check if the object is large enough
+    const osg::BoundingBox& bb = geometry.getBoundingBox();
+    float maxDim = 0.0f;
+    if (bb.valid())
+    {
+        maxDim = std::max(bb.xMax() - bb.xMin(), std::max(bb.yMax() - bb.yMin(), bb.zMax() - bb.zMin()));
+    }
+
+    if (maxDim > 500.0f) // Threshold for "large" object.
+    {
+        osg::StateSet* ss = geometry.getOrCreateStateSet();
+        // Only apply if not already set. We don't want to override existing settings that might disable culling.
+        if (!ss->getAttribute(osg::StateAttribute::CULLFACE))
+        {
+            osg::CullFace* cf = new osg::CullFace(osg::CullFace::BACK);
+            ss->setAttributeAndModes(cf, osg::StateAttribute::ON);
+        }
+    }
+}
+
+void Optimizer::BackfaceCullingVisitor::apply(osg::Group& group)
+{
+    if (isOperationPermissibleForObject(&group))
+    {
+        traverse(group);
+    }
+}
+
+void Optimizer::BackfaceCullingVisitor::apply(osg::Node& node)
+{
+    if (isOperationPermissibleForObject(&node))
+    {
+        traverse(node);
     }
 }
 
