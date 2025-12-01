@@ -805,7 +805,7 @@ namespace MWRender
                             optimizer.optimize(clone, SceneUtil::Optimizer::DEFAULT_OPTIMIZATIONS);
 
                             cnode = clone;
-                            mGeneratedLODCache[key] = cnode;
+                            mGeneratedLODCache[key] = clone;
                             usedGeneratedLOD = true;
                         }
                     }
