@@ -81,6 +81,10 @@ namespace MWRender
         typedef std::pair<std::string, unsigned char> LODNameCacheKey; // Key: mesh name, lod level
         using LODNameCache = std::map<LODNameCacheKey, VFS::Path::Normalized>; // Cache: key, mesh name to use
         LODNameCache mLODNameCache;
+
+        std::mutex mGeneratedLODMutex;
+        using GeneratedLODCache = std::map<LODNameCacheKey, osg::ref_ptr<osg::Node>>;
+        GeneratedLODCache mGeneratedLODCache;
     };
 
     class RefnumMarker : public osg::Object
