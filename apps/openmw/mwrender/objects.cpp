@@ -301,7 +301,7 @@ namespace MWRender
                 continue;
 
             // Clone the subgraph (Deep copy to allow flattening/merging without affecting original)
-            osg::ref_ptr<osg::Node> clone = node->clone(osg::CopyOp::DEEP_COPY_ALL);
+            osg::ref_ptr<osg::Node> clone = static_cast<osg::Node*>(node->clone(osg::CopyOp::DEEP_COPY_ALL));
             if (clone)
             {
                 bakeGroup->addChild(clone);
@@ -314,8 +314,7 @@ namespace MWRender
         {
             osgUtil::Optimizer optimizer;
             optimizer.optimize(bakeGroup, osgUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS
-                    | osgUtil::Optimizer::REMOVE_REDUNDANT_NODES | osgUtil::Optimizer::MERGE_GEOMETRY
-                    | osgUtil::Optimizer::MAKE_COMPLETELY_LEAF);
+                    | osgUtil::Optimizer::REMOVE_REDUNDANT_NODES | osgUtil::Optimizer::MERGE_GEOMETRY);
 
             // Visible to camera, and maybe shadows (Mask_Static included in shadow mask)
             bakeGroup->setNodeMask(Mask_BakedVisual | Mask_Static);
