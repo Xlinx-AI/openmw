@@ -1,6 +1,7 @@
 #ifndef OPENMW_COMPONENTS_SETTINGS_VALUES_H
 #define OPENMW_COMPONENTS_SETTINGS_VALUES_H
 
+#include "categories/animationlod.hpp"
 #include "categories/camera.hpp"
 #include "categories/cells.hpp"
 #include "categories/fog.hpp"
@@ -10,6 +11,7 @@
 #include "categories/gui.hpp"
 #include "categories/hud.hpp"
 #include "categories/input.hpp"
+#include "categories/lightclustering.hpp"
 #include "categories/lua.hpp"
 #include "categories/map.hpp"
 #include "categories/models.hpp"
@@ -38,6 +40,7 @@ namespace Settings
     {
         using WithIndex::WithIndex;
 
+        AnimationLODCategory mAnimationLOD{ mIndex };
         CameraCategory mCamera{ mIndex };
         CellsCategory mCells{ mIndex };
         TerrainCategory mTerrain{ mIndex };
@@ -47,6 +50,7 @@ namespace Settings
         HUDCategory mHUD{ mIndex };
         GameCategory mGame{ mIndex };
         GeneralCategory mGeneral{ mIndex };
+        LightClusteringCategory mLightClustering{ mIndex };
         ShadersCategory mShaders{ mIndex };
         InputCategory mInput{ mIndex };
         SavesCategory mSaves{ mIndex };
@@ -94,6 +98,11 @@ namespace Settings
         return *StaticValues::sValues;
     }
 
+    inline AnimationLODCategory& animationLOD()
+    {
+        return values().mAnimationLOD;
+    }
+
     inline CameraCategory& camera()
     {
         return values().mCamera;
@@ -137,6 +146,11 @@ namespace Settings
     inline GeneralCategory& general()
     {
         return values().mGeneral;
+    }
+
+    inline LightClusteringCategory& lightClustering()
+    {
+        return values().mLightClustering;
     }
 
     inline ShadersCategory& shaders()

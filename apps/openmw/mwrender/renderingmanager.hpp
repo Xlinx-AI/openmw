@@ -1,6 +1,7 @@
 #ifndef OPENMW_MWRENDER_RENDERINGMANAGER_H
 #define OPENMW_MWRENDER_RENDERINGMANAGER_H
 
+#include "animationlod.hpp"
 #include "objects.hpp"
 #include "renderinginterface.hpp"
 #include "rendermode.hpp"
@@ -353,8 +354,15 @@ namespace MWRender
         bool mNight = false;
         const MWWorld::GroundcoverStore& mGroundCoverStore;
 
+        std::unique_ptr<AnimationLOD> mAnimationLOD;
+
         void operator=(const RenderingManager&);
         RenderingManager(const RenderingManager&);
+
+    public:
+        /// Get animation LOD system for performance optimization
+        AnimationLOD* getAnimationLOD() { return mAnimationLOD.get(); }
+        const AnimationLOD* getAnimationLOD() const { return mAnimationLOD.get(); }
     };
 
 }
