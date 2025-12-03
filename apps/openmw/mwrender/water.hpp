@@ -49,8 +49,17 @@ namespace MWRender
     class RippleSimulation;
     class RainSettingsUpdater;
     class Ripples;
+    class CubemapReflection;
 
-    /// Water rendering
+    /// Reflection method types for water rendering
+    enum class WaterReflectionMethod
+    {
+        Planar = 0,        // High quality planar reflections (real-time)
+        DynamicCubemap = 1, // Medium quality, updates near FOV
+        StaticCubemap = 2   // Low quality, updates on time-of-day change
+    };
+
+    /// Water rendering with optimized reflection system
     class Water
     {
         osg::ref_ptr<RainSettingsUpdater> mRainSettingsUpdater;
@@ -67,6 +76,11 @@ namespace MWRender
         osg::ref_ptr<Refraction> mRefraction;
         osg::ref_ptr<Reflection> mReflection;
         osg::ref_ptr<Ripples> mRipples;
+        
+        // Cubemap-based reflection for optimized rendering
+        std::unique_ptr<CubemapReflection> mCubemapReflection;
+        WaterReflectionMethod mReflectionMethod;
+        float mLastTimeOfDay;
 
         bool mEnabled;
         bool mToggled;
@@ -83,6 +97,8 @@ namespace MWRender
         void createSimpleWaterStateSet(osg::Node* node, float alpha);
 
         void createShaderWaterStateSet(osg::Node* node);
+        
+        void createCubemapReflection();
 
         void updateWaterMaterial();
 
@@ -117,12 +133,21 @@ namespace MWRender
         void setRainRipplesEnabled(bool enableRipples);
 
         void update(float dt, bool paused);
+        
+        /// Update time of day for static cubemap reflections
+        void updateTimeOfDay(float gameHour);
+        
+        /// Update camera position for cubemap reflections
+        void updateCameraPosition(const osg::Vec3f& cameraPos);
 
         osg::Vec3d getPosition() const;
 
         void processChangedSettings(const Settings::CategorySettingVector& settings);
 
         void showWorld(bool show);
+        
+        /// Get current reflection method
+        WaterReflectionMethod getReflectionMethod() const { return mReflectionMethod; }
     };
 
 }
