@@ -39,6 +39,7 @@
 
 #include "../mwworld/cellstore.hpp"
 
+#include "cubemapreflection.hpp"
 #include "renderbin.hpp"
 #include "ripples.hpp"
 #include "ripplesimulation.hpp"
