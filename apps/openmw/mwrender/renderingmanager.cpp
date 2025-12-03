@@ -70,6 +70,7 @@
 #include "../mwbase/world.hpp"
 
 #include "actorspaths.hpp"
+#include "animationlod.hpp"
 #include "camera.hpp"
 #include "effectmanager.hpp"
 #include "fogmanager.hpp"
@@ -606,6 +607,9 @@ namespace MWRender
         updateProjectionMatrix();
 
         mViewer->getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        // Initialize Animation LOD system
+        mAnimationLOD = std::make_unique<AnimationLOD>();
     }
 
     RenderingManager::~RenderingManager()
@@ -930,6 +934,12 @@ namespace MWRender
             updateProjectionMatrix();
         }
         mCamera->update(dt, paused);
+
+        // Update Animation LOD system with current camera state
+        if (mAnimationLOD)
+        {
+            mAnimationLOD->updateCamera(mCamera->getViewMatrix(), mCamera->getProjectionMatrix(), mFieldOfView);
+        }
 
         bool isUnderwater = mWater->isUnderwater(mCamera->getPosition());
 
