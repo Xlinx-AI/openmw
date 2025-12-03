@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <MyGUI type="Layout" version="3.2.0">
     <Widget type="Window" skin="MW_Window" position="0 0 400 485" layer="Settings" name="_Main">
         <Property key="MinSize" value="640 540"/>
@@ -431,6 +431,20 @@
                         <Widget type="TextBox" skin="SandText" position="0 148 352 18" align="Right Top">
                             <Property key="Caption" value="#{OMWEngine:DistanceHigh}"/>
                             <Property key="TextAlign" value="Right"/>
+                        </Widget>
+
+                        <Widget type="HBox" position="0 174 340 28">
+                            <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
+                                <UserString key="SettingCategory" value="Cells"/>
+                                <UserString key="SettingName" value="cell optimization"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" position="28 4 200 16" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:CellOptimization}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:CellOptimizationTooltip}"/>
+                            </Widget>
                         </Widget>
 
                     </Widget>

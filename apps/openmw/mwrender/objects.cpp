@@ -9,6 +9,7 @@
 #include <components/misc/strings/algorithm.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/unrefqueue.hpp>
+#include <components/sceneutil/workqueue.hpp>
 #include <components/esm/defs.hpp>
 
 #include "../mwworld/class.hpp"
@@ -23,11 +24,76 @@
 namespace MWRender
 {
 
+    class CellOptimizationWorkItem : public SceneUtil::WorkItem
+    {
+    public:
+        CellOptimizationWorkItem(osg::ref_ptr<osg::Group> cellRoot, const MWWorld::CellStore* store)
+            : mCellRoot(std::move(cellRoot))
+            , mStore(store)
+            , mBakeGroup(new osg::Group)
+            , mAnyAdded(false)
+        {
+        }
+
+        void doWork() override
+        {
+            for (unsigned int i = 0; i < mCellRoot->getNumChildren(); ++i)
+            {
+                osg::Node* node = mCellRoot->getChild(i);
+                osg::UserDataContainer* udc = node->getUserDataContainer();
+                if (!udc)
+                    continue;
+
+                PtrHolder* ph = nullptr;
+                for (unsigned int j = 0; j < udc->getNumUserObjects(); ++j)
+                {
+                    ph = dynamic_cast<PtrHolder*>(udc->getUserObject(j));
+                    if (ph)
+                        break;
+                }
+                if (!ph)
+                    continue;
+
+                MWWorld::Ptr ptr = ph->mPtr;
+                if (ptr.getType() != ESM::REC_STAT)
+                    continue;
+                if (!ptr.getClass().getScript(ptr).empty())
+                    continue;
+                if (!ptr.getRefData().isEnabled())
+                    continue;
+
+                osg::ref_ptr<osg::Node> clone = static_cast<osg::Node*>(node->clone(osg::CopyOp::DEEP_COPY_ALL));
+                if (clone)
+                {
+                    mBakeGroup->addChild(clone);
+                    mNodesToMask.push_back(node);
+                    mAnyAdded = true;
+                }
+            }
+
+            if (mAnyAdded)
+            {
+                osgUtil::Optimizer optimizer;
+                optimizer.optimize(mBakeGroup, osgUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS
+                        | osgUtil::Optimizer::REMOVE_REDUNDANT_NODES | osgUtil::Optimizer::MERGE_GEOMETRY);
+
+                mBakeGroup->setNodeMask(Mask_BakedVisual | Mask_Static);
+            }
+        }
+
+        osg::ref_ptr<osg::Group> mCellRoot;
+        const MWWorld::CellStore* mStore;
+        osg::ref_ptr<osg::Group> mBakeGroup;
+        std::vector<osg::Node*> mNodesToMask;
+        bool mAnyAdded;
+    };
+
     Objects::Objects(Resource::ResourceSystem* resourceSystem, const osg::ref_ptr<osg::Group>& rootNode,
-        SceneUtil::UnrefQueue& unrefQueue)
+        SceneUtil::UnrefQueue& unrefQueue, SceneUtil::WorkQueue* workQueue)
         : mRootNode(rootNode)
         , mResourceSystem(resourceSystem)
         , mUnrefQueue(unrefQueue)
+        , mWorkQueue(workQueue)
     {
     }
 
@@ -174,6 +240,11 @@ namespace MWRender
 
     void Objects::removeCell(const MWWorld::CellStore* store)
     {
+        {
+            std::lock_guard<std::mutex> lock(mPendingMutex);
+            mPendingOptimizations.erase(store);
+        }
+
         mBakedNodes.erase(store);
 
         for (PtrAnimationMap::iterator iter = mObjects.begin(); iter != mObjects.end();)
@@ -323,8 +394,75 @@ namespace MWRender
         }
     }
 
+    void Objects::optimizeCellAsync(const MWWorld::CellStore* store)
+    {
+        if (!mWorkQueue)
+        {
+            optimizeCell(store);
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(mPendingMutex);
+            if (mPendingOptimizations.find(store) != mPendingOptimizations.end())
+                return;
+        }
+
+        if (mBakedNodes.find(store) != mBakedNodes.end())
+            return;
+
+        CellMap::iterator it = mCellSceneNodes.find(store);
+        if (it == mCellSceneNodes.end())
+            return;
+
+        osg::ref_ptr<CellOptimizationWorkItem> workItem = new CellOptimizationWorkItem(it->second, store);
+
+        {
+            std::lock_guard<std::mutex> lock(mPendingMutex);
+            mPendingOptimizations[store] = workItem;
+        }
+
+        mWorkQueue->addWorkItem(workItem);
+    }
+
+    void Objects::updateCellOptimization()
+    {
+        std::lock_guard<std::mutex> lock(mPendingMutex);
+
+        for (auto it = mPendingOptimizations.begin(); it != mPendingOptimizations.end();)
+        {
+            if (!it->second->isDone())
+            {
+                ++it;
+                continue;
+            }
+
+            CellOptimizationWorkItem* workItem = static_cast<CellOptimizationWorkItem*>(it->second.get());
+
+            if (workItem->mAnyAdded)
+            {
+                CellMap::iterator cellIt = mCellSceneNodes.find(workItem->mStore);
+                if (cellIt != mCellSceneNodes.end())
+                {
+                    for (osg::Node* node : workItem->mNodesToMask)
+                        node->setNodeMask(Mask_BakedOriginal);
+
+                    cellIt->second->addChild(workItem->mBakeGroup);
+                    mBakedNodes[workItem->mStore] = workItem->mBakeGroup;
+                }
+            }
+
+            it = mPendingOptimizations.erase(it);
+        }
+    }
+
     void Objects::restoreCell(const MWWorld::CellStore* store)
     {
+        {
+            std::lock_guard<std::mutex> lock(mPendingMutex);
+            mPendingOptimizations.erase(store);
+        }
+
         auto it = mBakedNodes.find(store);
         if (it == mBakedNodes.end())
             return;

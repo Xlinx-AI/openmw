@@ -77,6 +77,13 @@ BestAttack: "Always Use Best Attack"
 CameraSensitivity: "Camera Sensitivity"
 CameraZoomIn: "Zoom Camera In"
 CameraZoomOut: "Zoom Camera Out"
+CellOptimization: "Cell Optimization"
+CellOptimizationTooltip: |-
+    Default: off
+    Merge static geometry within cells to reduce draw calls.
+    This can improve frame rate but uses more memory.
+    Changes take effect when loading a new cell.
+    The optimization is performed in the background.
 ChangeRequiresRestart: "This change requires a restart to take effect."
 ClassicFalloff: "Classic Falloff"
 ClassicFalloffTooltip: |-
