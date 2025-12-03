@@ -73,7 +73,8 @@ namespace MWRender
                 plane.transform(*cv->getCurrentRenderStage()->getInitialViewMatrix());
 
                 osg::Vec3d eyePoint = cv->getEyePoint();
-                if (mCullPlane->intersect(osg::BoundingSphere(osg::Vec3d(0, 0, eyePoint.z()), 0)) > 0)
+                // Add a small epsilon to prevent flickering when the eye is exactly on the plane
+                if (mCullPlane->distance(osg::Vec3d(0, 0, eyePoint.z())) > 1.0)
                     plane.flip();
 
                 cv->getProjectionCullingStack().back().getFrustum().add(plane);
@@ -108,7 +109,8 @@ namespace MWRender
                 modelViewMatrix->preMultTranslate(mCullPlane->getNormal() * ((*mCullPlane)[3] * -1));
 
                 // flip the below graph if the eye point is above the plane
-                if (mCullPlane->intersect(osg::BoundingSphere(osg::Vec3d(0, 0, eyePoint.z()), 0)) > 0)
+                // Add a small epsilon to prevent flickering when the eye is exactly on the plane
+                if (mCullPlane->distance(osg::Vec3d(0, 0, eyePoint.z())) > 1.0)
                 {
                     modelViewMatrix->preMultScale(osg::Vec3(1, 1, -1));
                 }
