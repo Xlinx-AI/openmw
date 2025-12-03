@@ -967,7 +967,7 @@ namespace MWRender
         {
             const MWWorld::Ptr& player = mPlayerAnimation->getPtr();
             osg::Vec3f playerPos(player.getRefData().getPosition().asVec3());
-            osg::Vec3f cameraDir = mCamera->getTrackedPtr().isEmpty()
+            osg::Vec3f cameraDir = mCamera->getTrackingPtr().isEmpty()
                 ? osg::Vec3f(0, 1, 0)
                 : mCamera->getViewMatrix().getRotate() * osg::Vec3f(0, 1, 0);
             mEntityCulling->update(playerPos, cameraDir, dt);
