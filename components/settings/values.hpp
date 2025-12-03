@@ -4,6 +4,7 @@
 #include "categories/animationlod.hpp"
 #include "categories/camera.hpp"
 #include "categories/cells.hpp"
+#include "categories/entityculling.hpp"
 #include "categories/fog.hpp"
 #include "categories/game.hpp"
 #include "categories/general.hpp"
@@ -18,6 +19,7 @@
 #include "categories/navigator.hpp"
 #include "categories/physics.hpp"
 #include "categories/postprocessing.hpp"
+#include "categories/radiancehints.hpp"
 #include "categories/saves.hpp"
 #include "categories/shaders.hpp"
 #include "categories/shadows.hpp"
@@ -26,6 +28,7 @@
 #include "categories/stereoview.hpp"
 #include "categories/terrain.hpp"
 #include "categories/video.hpp"
+#include "categories/vrammanagement.hpp"
 #include "categories/water.hpp"
 #include "categories/windows.hpp"
 #include "settingvalue.hpp"
@@ -67,6 +70,9 @@ namespace Settings
         StereoCategory mStereo{ mIndex };
         StereoViewCategory mStereoView{ mIndex };
         PostProcessingCategory mPostProcessing{ mIndex };
+        RadianceHintsCategory mRadianceHints{ mIndex };
+        EntityCullingCategory mEntityCulling{ mIndex };
+        VRAMManagementCategory mVRAMManagement{ mIndex };
     };
 
     class StaticValues
@@ -231,6 +237,21 @@ namespace Settings
     inline PostProcessingCategory& postProcessing()
     {
         return values().mPostProcessing;
+    }
+
+    inline RadianceHintsCategory& radianceHints()
+    {
+        return values().mRadianceHints;
+    }
+
+    inline EntityCullingCategory& entityCulling()
+    {
+        return values().mEntityCulling;
+    }
+
+    inline VRAMManagementCategory& vramManagement()
+    {
+        return values().mVRAMManagement;
     }
 
     template <class T>

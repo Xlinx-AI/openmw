@@ -73,6 +73,7 @@
 #include "animationlod.hpp"
 #include "camera.hpp"
 #include "effectmanager.hpp"
+#include "entityculling.hpp"
 #include "fogmanager.hpp"
 #include "groundcover.hpp"
 #include "navmesh.hpp"
@@ -80,12 +81,14 @@
 #include "objectpaging.hpp"
 #include "pathgrid.hpp"
 #include "postprocessor.hpp"
+#include "radiancehints.hpp"
 #include "recastmesh.hpp"
 #include "screenshotmanager.hpp"
 #include "sky.hpp"
 #include "terrainstorage.hpp"
 #include "util.hpp"
 #include "vismask.hpp"
+#include "vrammanagement.hpp"
 #include "water.hpp"
 
 namespace MWRender
@@ -610,6 +613,16 @@ namespace MWRender
 
         // Initialize Animation LOD system
         mAnimationLOD = std::make_unique<AnimationLOD>();
+
+        // Initialize Radiance Hints GI system
+        mRadianceHints = std::make_unique<RadianceHints>(mResourceSystem, mSceneRoot.get());
+
+        // Initialize Entity Culling system
+        mEntityCulling = std::make_unique<EntityCulling>();
+        mEntityCulling->setCamera(mViewer->getCamera());
+
+        // Initialize VRAM Management system
+        mVRAMManagement = std::make_unique<VRAMManagement>(mResourceSystem);
     }
 
     RenderingManager::~RenderingManager()
@@ -939,6 +952,31 @@ namespace MWRender
         if (mAnimationLOD)
         {
             mAnimationLOD->updateCamera(mCamera->getViewMatrix(), mCamera->getProjectionMatrix(), mFieldOfView);
+        }
+
+        // Update Radiance Hints GI system
+        if (mRadianceHints && mRadianceHints->isEnabled())
+        {
+            const MWWorld::Ptr& player = mPlayerAnimation->getPtr();
+            osg::Vec3f playerPos(player.getRefData().getPosition().asVec3());
+            mRadianceHints->update(dt, playerPos);
+        }
+
+        // Update Entity Culling system
+        if (mEntityCulling)
+        {
+            const MWWorld::Ptr& player = mPlayerAnimation->getPtr();
+            osg::Vec3f playerPos(player.getRefData().getPosition().asVec3());
+            osg::Vec3f cameraDir = mCamera->getTrackingPtr().isEmpty()
+                ? osg::Vec3f(0, 1, 0)
+                : mCamera->getViewMatrix().getRotate() * osg::Vec3f(0, 1, 0);
+            mEntityCulling->update(playerPos, cameraDir, dt);
+        }
+
+        // Update VRAM Management system
+        if (mVRAMManagement)
+        {
+            mVRAMManagement->update(dt);
         }
 
         bool isUnderwater = mWater->isUnderwater(mCamera->getPosition());
@@ -1604,6 +1642,21 @@ namespace MWRender
                     if (auto* hud = MWBase::Environment::get().getWindowManager()->getPostProcessorHud())
                         hud->setVisible(false);
                 }
+            }
+            else if (it->first == "Radiance Hints")
+            {
+                if (mRadianceHints)
+                    mRadianceHints->processChangedSettings();
+            }
+            else if (it->first == "Entity Culling")
+            {
+                if (mEntityCulling)
+                    mEntityCulling->processChangedSettings();
+            }
+            else if (it->first == "VRAM Management")
+            {
+                if (mVRAMManagement)
+                    mVRAMManagement->processChangedSettings();
             }
         }
 
