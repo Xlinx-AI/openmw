@@ -166,19 +166,18 @@ namespace MWRender
         osg::Plane mPlane;
     };
 
-    /// This callback on the Camera has the effect of a RELATIVE_RF_INHERIT_VIEWPOINT transform mode (which does not
-    /// exist in OSG). We want to keep the View Point of the parent camera so we will not have to recreate LODs.
-    class InheritViewPointCallback
-        : public SceneUtil::NodeCallback<InheritViewPointCallback, osg::Node*, osgUtil::CullVisitor*>
+    /// Simple callback for reflection/refraction cameras that does NOT inherit viewpoint
+    /// This ensures real-time reflection updates without LOD flickering artifacts
+    class RealtimeReflectionCallback
+        : public SceneUtil::NodeCallback<RealtimeReflectionCallback, osg::Node*, osgUtil::CullVisitor*>
     {
     public:
-        InheritViewPointCallback() {}
+        RealtimeReflectionCallback() {}
 
         void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
         {
-            osg::ref_ptr<osg::RefMatrix> modelViewMatrix = new osg::RefMatrix(*cv->getModelViewMatrix());
-            cv->popModelViewMatrix();
-            cv->pushModelViewMatrix(modelViewMatrix, osg::Transform::ABSOLUTE_RF_INHERIT_VIEWPOINT);
+            // Use RELATIVE_RF instead of ABSOLUTE_RF_INHERIT_VIEWPOINT to avoid LOD flickering
+            // Each frame gets its own independent view calculation
             traverse(node, cv);
         }
     };
@@ -263,7 +262,7 @@ namespace MWRender
             camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
             camera->setSmallFeatureCullingPixelSize(Settings::water().mSmallFeatureCullingPixelSize);
             camera->setName("RefractionCamera");
-            camera->addCullCallback(new InheritViewPointCallback);
+            camera->addCullCallback(new RealtimeReflectionCallback);
             camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
 
             // No need for fog here, we are already applying fog on the water surface itself as well as underwater fog
@@ -342,7 +341,7 @@ namespace MWRender
             camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
             camera->setSmallFeatureCullingPixelSize(Settings::water().mSmallFeatureCullingPixelSize);
             camera->setName("ReflectionCamera");
-            camera->addCullCallback(new InheritViewPointCallback);
+            camera->addCullCallback(new RealtimeReflectionCallback);
 
             // Inform the shader that we're in a reflection
             camera->getOrCreateStateSet()->addUniform(new osg::Uniform("isReflection", true));
@@ -541,7 +540,8 @@ namespace MWRender
             const unsigned int rttSize = Settings::water().mRttSize;
 
             mReflection = new Reflection(rttSize, mInterior);
-            mReflection->setUpdateRate(2);
+            // Real-time reflections - update every frame to avoid flickering
+            // Quality settings are preserved via mReflectionDetail
             mReflection->setWaterLevel(mTop);
             mReflection->setScene(mSceneRoot);
             if (mCullCallback)
@@ -551,7 +551,7 @@ namespace MWRender
             if (Settings::water().mRefraction)
             {
                 mRefraction = new Refraction(rttSize);
-                mRefraction->setUpdateRate(2);
+                // Real-time refractions - update every frame
                 mRefraction->setWaterLevel(mTop);
                 mRefraction->setScene(mSceneRoot);
                 if (mCullCallback)

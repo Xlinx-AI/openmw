@@ -2,9 +2,12 @@
 #define OPENMW_MWRENDER_RENDERINGMANAGER_H
 
 #include "animationlod.hpp"
+#include "entityculling.hpp"
 #include "objects.hpp"
+#include "radiancehints.hpp"
 #include "renderinginterface.hpp"
 #include "rendermode.hpp"
+#include "vrammanagement.hpp"
 
 #include <components/settings/settings.hpp>
 #include <components/vfs/pathutil.hpp>
@@ -355,6 +358,9 @@ namespace MWRender
         const MWWorld::GroundcoverStore& mGroundCoverStore;
 
         std::unique_ptr<AnimationLOD> mAnimationLOD;
+        std::unique_ptr<RadianceHints> mRadianceHints;
+        std::unique_ptr<EntityCulling> mEntityCulling;
+        std::unique_ptr<VRAMManagement> mVRAMManagement;
 
         void operator=(const RenderingManager&);
         RenderingManager(const RenderingManager&);
@@ -363,6 +369,18 @@ namespace MWRender
         /// Get animation LOD system for performance optimization
         AnimationLOD* getAnimationLOD() { return mAnimationLOD.get(); }
         const AnimationLOD* getAnimationLOD() const { return mAnimationLOD.get(); }
+
+        /// Get Radiance Hints GI system
+        RadianceHints* getRadianceHints() { return mRadianceHints.get(); }
+        const RadianceHints* getRadianceHints() const { return mRadianceHints.get(); }
+
+        /// Get Entity Culling system
+        EntityCulling* getEntityCulling() { return mEntityCulling.get(); }
+        const EntityCulling* getEntityCulling() const { return mEntityCulling.get(); }
+
+        /// Get VRAM Management system
+        VRAMManagement* getVRAMManagement() { return mVRAMManagement.get(); }
+        const VRAMManagement* getVRAMManagement() const { return mVRAMManagement.get(); }
     };
 
 }
