@@ -27,14 +27,14 @@ namespace SceneUtil
 
     void LightClustering::loadSettings()
     {
-        const auto& settings = Settings::lightClustering();
-        mSettings.enabled = settings.mEnabled;
-        mSettings.clustersX = settings.mClustersX;
-        mSettings.clustersY = settings.mClustersY;
-        mSettings.clustersZ = settings.mClustersZ;
-        mSettings.maxLightsPerCluster = settings.mMaxLightsPerCluster;
-        mSettings.clusterNear = settings.mClusterNear;
-        mSettings.clusterFar = settings.mClusterFar;
+        const auto& globalSettings = ::Settings::lightClustering();
+        mSettings.enabled = globalSettings.mEnabled;
+        mSettings.clustersX = globalSettings.mClustersX;
+        mSettings.clustersY = globalSettings.mClustersY;
+        mSettings.clustersZ = globalSettings.mClustersZ;
+        mSettings.maxLightsPerCluster = globalSettings.mMaxLightsPerCluster;
+        mSettings.clusterNear = globalSettings.mClusterNear;
+        mSettings.clusterFar = globalSettings.mClusterFar;
     }
 
     void LightClustering::initClusters()
