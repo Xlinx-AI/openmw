@@ -37,7 +37,15 @@ namespace MWMechanics
         const MWWorld::Ptr& projectile, const osg::Vec3f& hitPosition, float attackStrength);
 
     /// Get the chance (in percent) for \a attacker to successfully hit \a victim with a given weapon skill value
+    /// If "combat always hits" setting is enabled, returns 100 (guaranteed hit)
     float getHitChance(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim, int skillValue);
+    
+    /// Get enhanced hit chance that respects "combat always hits" setting
+    float getEnhancedHitChance(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim, int skillValue);
+    
+    /// Apply enhanced combat damage modifiers (momentum, directional attacks, stamina)
+    float applyEnhancedCombatModifiers(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim,
+        const MWWorld::Ptr& weapon, float baseDamage, float attackStrength);
 
     /// Applies damage to attacker based on the victim's elemental shields.
     void applyElementalShields(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim);

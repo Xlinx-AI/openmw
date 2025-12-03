@@ -27,6 +27,7 @@
 
 #include "actorutil.hpp"
 #include "difficultyscaling.hpp"
+#include "enhancedcombat.hpp"
 #include "movement.hpp"
 #include "npcstats.hpp"
 #include "pathfinding.hpp"
@@ -728,6 +729,17 @@ namespace MWMechanics
         if (complain)
             MWBase::Environment::get().getDialogueManager()->say(target, ESM::RefId::stringRefId("hit"));
         return true;
+    }
+
+    float getEnhancedHitChance(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim, int skillValue)
+    {
+        return EnhancedCombatSystem::getEnhancedHitChance(attacker, victim, skillValue);
+    }
+
+    float applyEnhancedCombatModifiers(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim,
+        const MWWorld::Ptr& weapon, float baseDamage, float attackStrength)
+    {
+        return EnhancedCombatSystem::applyEnhancedCombatDamage(attacker, victim, weapon, baseDamage, attackStrength);
     }
 
 }

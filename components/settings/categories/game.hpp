@@ -74,6 +74,77 @@ namespace Settings
         SettingValue<DetourNavigator::CollisionShapeType> mActorCollisionShapeType{ mIndex, "Game",
             "actor collision shape type" };
         SettingValue<bool> mPlayerMovementIgnoresAnimation{ mIndex, "Game", "player movement ignores animation" };
+        
+        // ==================== Enhanced Combat System ====================
+        // Combat always hits - removes dice-roll misses for more action-oriented combat
+        SettingValue<bool> mCombatAlwaysHits{ mIndex, "Game", "combat always hits" };
+        // Momentum combat - damage scales with movement speed and attack timing
+        SettingValue<bool> mMomentumCombat{ mIndex, "Game", "momentum combat" };
+        // Momentum damage multiplier (how much movement affects damage)
+        SettingValue<float> mMomentumDamageMultiplier{ mIndex, "Game", "momentum damage multiplier",
+            makeClampSanitizerFloat(0.0f, 2.0f) };
+        // Directional power attacks - different attack directions deal different damage types
+        SettingValue<bool> mDirectionalPowerAttacks{ mIndex, "Game", "directional power attacks" };
+        // Combat stamina system - attacks cost stamina, exhaustion reduces damage
+        SettingValue<bool> mCombatStaminaSystem{ mIndex, "Game", "combat stamina system" };
+        // Stagger system - consecutive hits can stagger opponents
+        SettingValue<bool> mStaggerSystem{ mIndex, "Game", "stagger system" };
+        // Stagger threshold (damage needed to trigger stagger)
+        SettingValue<float> mStaggerThreshold{ mIndex, "Game", "stagger threshold",
+            makeClampSanitizerFloat(10.0f, 100.0f) };
+
+        // ==================== Interactive Grass System ====================
+        // Enable grass interaction with player and NPCs
+        SettingValue<bool> mGrassInteraction{ mIndex, "Game", "grass interaction" };
+        // Grass interaction radius
+        SettingValue<float> mGrassInteractionRadius{ mIndex, "Game", "grass interaction radius",
+            makeClampSanitizerFloat(50.0f, 300.0f) };
+        // Grass bend intensity
+        SettingValue<float> mGrassBendIntensity{ mIndex, "Game", "grass bend intensity",
+            makeClampSanitizerFloat(0.0f, 2.0f) };
+        // Grass recovery speed (how fast grass returns to normal)
+        SettingValue<float> mGrassRecoverySpeed{ mIndex, "Game", "grass recovery speed",
+            makeClampSanitizerFloat(0.5f, 5.0f) };
+
+        // ==================== Full Body IK & Physics Animation ====================
+        // Enable full body IK system
+        SettingValue<bool> mFullBodyIK{ mIndex, "Game", "full body ik" };
+        // Spring-based body animation (Euphoria-like physics responses)
+        SettingValue<bool> mSpringBodyAnimation{ mIndex, "Game", "spring body animation" };
+        // Spring stiffness for procedural animation
+        SettingValue<float> mSpringStiffness{ mIndex, "Game", "spring stiffness",
+            makeClampSanitizerFloat(0.1f, 10.0f) };
+        // Spring damping (reduces oscillation)
+        SettingValue<float> mSpringDamping{ mIndex, "Game", "spring damping",
+            makeClampSanitizerFloat(0.1f, 2.0f) };
+        // Active ragdoll system - blends animation with physics
+        SettingValue<bool> mActiveRagdoll{ mIndex, "Game", "active ragdoll" };
+        // Ragdoll blend factor (0 = full animation, 1 = full physics)
+        SettingValue<float> mRagdollBlendFactor{ mIndex, "Game", "ragdoll blend factor",
+            makeClampSanitizerFloat(0.0f, 1.0f) };
+        // Impact impulse threshold for triggering physics response
+        SettingValue<float> mImpactImpulseThreshold{ mIndex, "Game", "impact impulse threshold",
+            makeClampSanitizerFloat(50.0f, 500.0f) };
+
+        // ==================== A-Life World Simulation ====================
+        // Enable A-Life world simulation system
+        SettingValue<bool> mALifeSimulation{ mIndex, "Game", "alife simulation" };
+        // NPC daily schedule system
+        SettingValue<bool> mNPCSchedules{ mIndex, "Game", "npc schedules" };
+        // NPC needs simulation (hunger, fatigue, social)
+        SettingValue<bool> mNPCNeeds{ mIndex, "Game", "npc needs" };
+        // Dynamic economy - prices and availability change based on supply/demand
+        SettingValue<bool> mDynamicEconomy{ mIndex, "Game", "dynamic economy" };
+        // Faction territory control
+        SettingValue<bool> mFactionTerritories{ mIndex, "Game", "faction territories" };
+        // World events - random events occur in the world
+        SettingValue<bool> mWorldEvents{ mIndex, "Game", "world events" };
+        // A-Life simulation update interval (in game minutes)
+        SettingValue<float> mALifeUpdateInterval{ mIndex, "Game", "alife update interval",
+            makeClampSanitizerFloat(1.0f, 60.0f) };
+        // Maximum NPCs to simulate in background
+        SettingValue<int> mALifeMaxSimulatedNPCs{ mIndex, "Game", "alife max simulated npcs",
+            makeClampSanitizerInt(50, 500) };
     };
 }
 
