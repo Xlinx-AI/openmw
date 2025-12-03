@@ -777,7 +777,7 @@ namespace MWRender
 
         mWater->changeCell(store);
 
-        mObjects->optimizeCell(store);
+        // mObjects->optimizeCell(store);
 
         if (store->getCell()->isExterior())
         {
