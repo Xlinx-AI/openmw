@@ -2,6 +2,7 @@
 #define GAME_RENDER_OBJECTS_H
 
 #include <map>
+#include <mutex>
 #include <string>
 
 #include <osg/Object>
@@ -27,6 +28,8 @@ namespace MWWorld
 namespace SceneUtil
 {
     class UnrefQueue;
+    class WorkQueue;
+    class WorkItem;
 }
 
 namespace MWRender
@@ -64,12 +67,13 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mRootNode;
         Resource::ResourceSystem* mResourceSystem;
         SceneUtil::UnrefQueue& mUnrefQueue;
+        SceneUtil::WorkQueue* mWorkQueue;
 
         void insertBegin(const MWWorld::Ptr& ptr);
 
     public:
         Objects(Resource::ResourceSystem* resourceSystem, const osg::ref_ptr<osg::Group>& rootNode,
-            SceneUtil::UnrefQueue& unrefQueue);
+            SceneUtil::UnrefQueue& unrefQueue, SceneUtil::WorkQueue* workQueue = nullptr);
         ~Objects();
 
         /// @param allowLight If false, no lights will be created, and particles systems will be removed.
@@ -90,10 +94,15 @@ namespace MWRender
         void updatePtr(const MWWorld::Ptr& old, const MWWorld::Ptr& cur);
 
         void optimizeCell(const MWWorld::CellStore* store);
+        void optimizeCellAsync(const MWWorld::CellStore* store);
         void restoreCell(const MWWorld::CellStore* store);
+
+        void updateCellOptimization();
 
     private:
         std::map<const MWWorld::CellStore*, osg::ref_ptr<osg::Node>> mBakedNodes;
+        std::map<const MWWorld::CellStore*, osg::ref_ptr<SceneUtil::WorkItem>> mPendingOptimizations;
+        std::mutex mPendingMutex;
 
         void operator=(const Objects&);
         Objects(const Objects&);

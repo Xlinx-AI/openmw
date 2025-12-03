@@ -469,7 +469,7 @@ namespace MWRender
         mRecastMesh = std::make_unique<RecastMesh>(mRootNode, Settings::navigator().mEnableRecastMeshRender);
         mPathgrid = std::make_unique<Pathgrid>(mRootNode);
 
-        mObjects = std::make_unique<Objects>(mResourceSystem, sceneRoot, unrefQueue);
+        mObjects = std::make_unique<Objects>(mResourceSystem, sceneRoot, unrefQueue, workQueue);
 
         if (getenv("OPENMW_DONT_PRECOMPILE") == nullptr)
         {
@@ -777,7 +777,8 @@ namespace MWRender
 
         mWater->changeCell(store);
 
-        // mObjects->optimizeCell(store);
+        if (Settings::cells().mCellOptimization)
+            mObjects->optimizeCellAsync(store);
 
         if (store->getCell()->isExterior())
         {
@@ -898,6 +899,9 @@ namespace MWRender
         reportStats();
 
         mResourceSystem->getSceneManager()->getShaderManager().update(*mViewer);
+
+        if (Settings::cells().mCellOptimization)
+            mObjects->updateCellOptimization();
 
         float rainIntensity = mSky->getPrecipitationAlpha();
         mWater->setRainIntensity(rainIntensity);
