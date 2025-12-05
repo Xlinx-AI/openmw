@@ -6,6 +6,7 @@
 #include <osg/Quat>
 #include <osg/ref_ptr>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
