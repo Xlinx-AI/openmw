@@ -6,6 +6,7 @@
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/settings/values.hpp>
 
 #include <algorithm>
