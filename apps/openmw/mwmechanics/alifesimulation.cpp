@@ -12,6 +12,7 @@
 #include "../mwbase/windowmanager.hpp"
 
 #include "../mwworld/class.hpp"
+#include "../mwworld/cellstore.hpp"
 #include "../mwworld/esmstore.hpp"
 
 namespace

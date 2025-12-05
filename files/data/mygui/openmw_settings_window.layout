@@ -734,6 +734,423 @@
                 </Widget>
             </Widget>
             <Widget type="TabItem">
+                <Property key="Caption" value=" #{OMWEngine:GameplayFeatures} "/>
+                <Widget type="ScrollView" skin="MW_ScrollView" position="4 4 352 390" align="Stretch" name="GameplayScroll">
+                    <Property key="CanvasAlign" value="Left Top"/>
+                    <Property key="CanvasSize" value="336 1200"/>
+                    <Widget type="Widget" position="0 0 336 1200" align="Left Top">
+                        <Widget type="TextBox" skin="NormalText" position="0 0 320 18" align="Left Top">
+                            <Property key="Caption" value="#{OMWEngine:EnhancedCombat}"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 24 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="combat always hits"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:CombatAlwaysHits}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:CombatAlwaysHitsTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 56 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="momentum combat"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:MomentumCombat}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:MomentumCombatTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 84 320 18" align="Left Top" name="MomentumDamageText">
+                            <Property key="Caption" value="#{OMWEngine:MomentumDamageMultiplier}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:MomentumDamageMultiplierTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 108 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="momentum damage multiplier"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.0"/>
+                            <UserString key="SettingMax" value="2.0"/>
+                            <UserString key="SettingLabelWidget" value="MomentumDamageText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:MomentumDamageMultiplier} (%s)"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 136 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="directional power attacks"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:DirectionalPowerAttacks}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:DirectionalPowerAttacksTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 168 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="combat stamina system"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:CombatStaminaSystem}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:CombatStaminaSystemTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 200 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="stagger system"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:StaggerSystem}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:StaggerSystemTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 228 320 18" align="Left Top" name="StaggerThresholdText">
+                            <Property key="Caption" value="#{OMWEngine:StaggerThreshold}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:StaggerThresholdTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 252 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="stagger threshold"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="10.0"/>
+                            <UserString key="SettingMax" value="100.0"/>
+                            <UserString key="SettingLabelWidget" value="StaggerThresholdText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:StaggerThreshold} (%s)"/>
+                        </Widget>
+                        <Widget type="ImageBox" skin="MW_HLine" position="0 284 320 18" align="Left Top"/>
+                        <Widget type="TextBox" skin="NormalText" position="0 300 320 18" align="Left Top">
+                            <Property key="Caption" value="#{OMWEngine:GrassInteraction}"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 324 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="grass interaction"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:GrassInteractionEnabled}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:GrassInteractionEnabledTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 352 320 18" align="Left Top" name="GrassRadiusText">
+                            <Property key="Caption" value="#{OMWEngine:GrassInteractionRadius}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:GrassInteractionRadiusTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 376 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="grass interaction radius"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="50.0"/>
+                            <UserString key="SettingMax" value="300.0"/>
+                            <UserString key="SettingLabelWidget" value="GrassRadiusText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:GrassInteractionRadius} (%s)"/>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 404 320 18" align="Left Top" name="GrassBendText">
+                            <Property key="Caption" value="#{OMWEngine:GrassBendIntensity}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:GrassBendIntensityTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 428 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="grass bend intensity"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.0"/>
+                            <UserString key="SettingMax" value="2.0"/>
+                            <UserString key="SettingLabelWidget" value="GrassBendText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:GrassBendIntensity} (%s)"/>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 456 320 18" align="Left Top" name="GrassRecoveryText">
+                            <Property key="Caption" value="#{OMWEngine:GrassRecoverySpeed}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:GrassRecoverySpeedTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 480 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="grass recovery speed"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.5"/>
+                            <UserString key="SettingMax" value="5.0"/>
+                            <UserString key="SettingLabelWidget" value="GrassRecoveryText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:GrassRecoverySpeed} (%s)"/>
+                        </Widget>
+                        <Widget type="ImageBox" skin="MW_HLine" position="0 512 320 18" align="Left Top"/>
+                        <Widget type="TextBox" skin="NormalText" position="0 528 320 18" align="Left Top">
+                            <Property key="Caption" value="#{OMWEngine:FullBodyIK}"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 552 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="full body ik"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:FullBodyIKEnabled}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:FullBodyIKEnabledTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 584 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="spring body animation"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:SpringBodyAnimation}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:SpringBodyAnimationTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 612 320 18" align="Left Top" name="SpringStiffnessText">
+                            <Property key="Caption" value="#{OMWEngine:SpringStiffness}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:SpringStiffnessTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 636 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="spring stiffness"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.1"/>
+                            <UserString key="SettingMax" value="10.0"/>
+                            <UserString key="SettingLabelWidget" value="SpringStiffnessText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:SpringStiffness} (%s)"/>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 664 320 18" align="Left Top" name="SpringDampingText">
+                            <Property key="Caption" value="#{OMWEngine:SpringDamping}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:SpringDampingTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 688 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="spring damping"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.1"/>
+                            <UserString key="SettingMax" value="2.0"/>
+                            <UserString key="SettingLabelWidget" value="SpringDampingText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:SpringDamping} (%s)"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 716 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="active ragdoll"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:ActiveRagdoll}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:ActiveRagdollTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 744 320 18" align="Left Top" name="RagdollBlendText">
+                            <Property key="Caption" value="#{OMWEngine:RagdollBlendFactor}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:RagdollBlendFactorTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 768 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="ragdoll blend factor"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="0.0"/>
+                            <UserString key="SettingMax" value="1.0"/>
+                            <UserString key="SettingLabelWidget" value="RagdollBlendText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:RagdollBlendFactor} (%s)"/>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 796 320 18" align="Left Top" name="ImpactImpulseText">
+                            <Property key="Caption" value="#{OMWEngine:ImpactImpulseThreshold}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:ImpactImpulseThresholdTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 820 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="impact impulse threshold"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="50.0"/>
+                            <UserString key="SettingMax" value="500.0"/>
+                            <UserString key="SettingLabelWidget" value="ImpactImpulseText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:ImpactImpulseThreshold} (%s)"/>
+                        </Widget>
+                        <Widget type="ImageBox" skin="MW_HLine" position="0 852 320 18" align="Left Top"/>
+                        <Widget type="TextBox" skin="NormalText" position="0 868 320 18" align="Left Top">
+                            <Property key="Caption" value="#{OMWEngine:ALifeSimulation}"/>
+                        </Widget>
+                        <Widget type="HBox" position="0 892 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="alife simulation"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:ALifeSimulationEnabled}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:ALifeSimulationEnabledTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 924 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="npc schedules"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:NPCSchedules}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:NPCSchedulesTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 956 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="npc needs"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:NPCNeeds}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:NPCNeedsTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 988 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="dynamic economy"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:DynamicEconomy}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:DynamicEconomyTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 1020 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="faction territories"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:FactionTerritories}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:FactionTerritoriesTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" position="0 1052 320 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" align="Left Top">
+                                <UserString key="SettingCategory" value="Game"/>
+                                <UserString key="SettingName" value="world events"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" align="Left Top">
+                                <Property key="Caption" value="#{OMWEngine:WorldEvents}"/>
+                                <UserString key="ToolTipType" value="Layout"/>
+                                <UserString key="ToolTipLayout" value="TextToolTip"/>
+                                <UserString key="Caption_Text" value="#{OMWEngine:WorldEventsTooltip}"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 1080 320 18" align="Left Top" name="ALifeUpdateText">
+                            <Property key="Caption" value="#{OMWEngine:ALifeUpdateInterval}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:ALifeUpdateIntervalTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 1104 320 18" align="Left Top">
+                            <Property key="Range" value="10000"/>
+                            <Property key="Page" value="300"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="alife update interval"/>
+                            <UserString key="SettingValueType" value="Float"/>
+                            <UserString key="SettingMin" value="1.0"/>
+                            <UserString key="SettingMax" value="60.0"/>
+                            <UserString key="SettingLabelWidget" value="ALifeUpdateText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:ALifeUpdateInterval} (%s)"/>
+                        </Widget>
+                        <Widget type="TextBox" skin="NormalText" position="0 1132 320 18" align="Left Top" name="ALifeMaxNPCText">
+                            <Property key="Caption" value="#{OMWEngine:ALifeMaxSimulatedNPCs}"/>
+                            <UserString key="ToolTipType" value="Layout"/>
+                            <UserString key="ToolTipLayout" value="TextToolTip"/>
+                            <UserString key="Caption_Text" value="#{OMWEngine:ALifeMaxSimulatedNPCsTooltip}"/>
+                        </Widget>
+                        <Widget type="ScrollBar" skin="MW_HScroll" position="0 1156 320 18" align="Left Top">
+                            <Property key="Range" value="451"/>
+                            <Property key="Page" value="1"/>
+                            <UserString key="SettingType" value="Slider"/>
+                            <UserString key="SettingCategory" value="Game"/>
+                            <UserString key="SettingName" value="alife max simulated npcs"/>
+                            <UserString key="SettingValueType" value="Integer"/>
+                            <UserString key="SettingMin" value="50"/>
+                            <UserString key="SettingMax" value="500"/>
+                            <UserString key="SettingLabelWidget" value="ALifeMaxNPCText"/>
+                            <UserString key="SettingLabelCaption" value="#{OMWEngine:ALifeMaxSimulatedNPCs} (%s)"/>
+                        </Widget>
+                    </Widget>
+                </Widget>
+            </Widget>
+            <Widget type="TabItem">
                 <Property key="Caption" value=" #{OMWEngine:Scripts} "/>
 
                 <Widget name="ScriptDisabled" type="EditBox" skin="SandText" position_real="0 0 1 1" align="HStretch Top">
