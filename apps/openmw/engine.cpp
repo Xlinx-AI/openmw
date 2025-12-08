@@ -80,6 +80,7 @@
 #include "mwdialogue/scripttest.hpp"
 
 #include "mwmechanics/mechanicsmanagerimp.hpp"
+#include "mwmechanics/alifesimulation.hpp"
 
 #include "mwstate/statemanagerimp.hpp"
 
@@ -275,6 +276,13 @@ bool OMW::Engine::frame(unsigned frameNumber, float frametime)
             if (mStateManager->getState() != MWBase::StateManager::State_NoGame)
             {
                 mMechanicsManager->update(frametime, paused);
+            }
+
+            // Update A-Life simulation
+            if (mStateManager->getState() != MWBase::StateManager::State_NoGame && !paused)
+            {
+                double gameHours = mWorld->getTimeManager()->getGameTime();
+                MWMechanics::getALifeSimulation().update(gameHours, frametime);
             }
 
             if (mStateManager->getState() == MWBase::StateManager::State_Running)
