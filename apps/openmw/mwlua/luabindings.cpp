@@ -1,5 +1,4 @@
 #include "luabindings.hpp"
-
 #include <components/lua/asyncpackage.hpp>
 #include <components/lua/utilpackage.hpp>
 
@@ -12,6 +11,7 @@
 #include "cellbindings.hpp"
 #include "corebindings.hpp"
 #include "debugbindings.hpp"
+#include "grassbindings.hpp"
 #include "inputbindings.hpp"
 #include "localscripts.hpp"
 #include "markupbindings.hpp"
@@ -49,6 +49,7 @@ namespace MWLua
             { "openmw.core", initCorePackage(context) },
             { "openmw.types", initTypesPackage(context) },
             { "openmw.world", initWorldPackage(context) },
+            { "openmw.grass", initGrassPackage(context) },
         };
     }
 

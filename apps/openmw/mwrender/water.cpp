@@ -454,6 +454,7 @@ namespace MWRender
         , mShowWorld(true)
         , mCullCallback(nullptr)
         , mShaderWaterStateSetUpdater(nullptr)
+        , mReflectionMethod(static_cast<WaterReflectionMethod>(Settings::water().mReflectionMethod))
     {
         mSimulation = std::make_unique<RippleSimulation>(mSceneRoot, resourceSystem);
 
