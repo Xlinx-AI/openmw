@@ -98,6 +98,10 @@ namespace CSMProcs
         /// Place objects in a cell
         void placeObjectsInCell(int cellX, int cellY);
         
+        /// Create a reference (object instance) in a cell
+        void createReference(const std::string& objectId, const std::string& cellId,
+                            float x, float y, float z, float rotation, float scale);
+        
         /// Select appropriate object based on terrain and rules
         std::string selectObject(const std::string& category, float terrainHeight, float slope) const;
         
@@ -109,6 +113,9 @@ namespace CSMProcs
         
         /// Create an interior cell
         void createInterior(const std::string& name, int roomCount);
+        
+        /// Generate BSP-based interior layout
+        void generateBSPInterior(const std::string& cellName, int roomCount);
         
         /// Generate pathgrid for a cell
         void generatePathgridForCell(int cellX, int cellY);

@@ -1,17 +1,26 @@
 #include "proceduralgenerator.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <set>
+#include <queue>
+
+#include <QVariant>
+#include <QUndoStack>
 
 #include <apps/opencs/model/doc/document.hpp>
 #include <apps/opencs/model/world/cell.hpp>
+#include <apps/opencs/model/world/cellcoordinates.hpp>
 #include <apps/opencs/model/world/columns.hpp>
+#include <apps/opencs/model/world/columnimp.hpp>
 #include <apps/opencs/model/world/commands.hpp>
 #include <apps/opencs/model/world/data.hpp>
 #include <apps/opencs/model/world/idcollection.hpp>
 #include <apps/opencs/model/world/idtable.hpp>
+#include <apps/opencs/model/world/idtree.hpp>
 #include <apps/opencs/model/world/land.hpp>
+#include <apps/opencs/model/world/pathgrid.hpp>
 #include <apps/opencs/model/world/ref.hpp>
 #include <apps/opencs/model/world/refcollection.hpp>
 #include <apps/opencs/model/world/refidcollection.hpp>
@@ -19,6 +28,7 @@
 
 #include <components/esm3/loadcell.hpp>
 #include <components/esm3/loadland.hpp>
+#include <components/esm3/loadpgrd.hpp>
 
 namespace CSMProcs
 {
@@ -48,6 +58,7 @@ namespace CSMProcs
         if (seed == 0)
         {
             seed = static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
+            mState.seed = seed;
         }
         
         mPerlin = std::make_unique<PerlinNoise>(seed);
@@ -59,38 +70,53 @@ namespace CSMProcs
     {
         const TerrainParams& tp = mState.terrain;
         
-        // Scale coordinates for noise
-        float nx = worldX / static_cast<float>(ESM::Land::REAL_SIZE) * tp.mountainFrequency;
-        float ny = worldY / static_cast<float>(ESM::Land::REAL_SIZE) * tp.mountainFrequency;
+        // Normalize coordinates for noise sampling
+        float scale = 1.0f / (ESM::Land::REAL_SIZE * 4.0f);
+        float nx = worldX * scale * tp.mountainFrequency;
+        float ny = worldY * scale * tp.mountainFrequency;
         
-        // Base terrain using fractal noise
-        float baseNoise = mPerlin->fractalNoise2D(nx, ny, tp.octaves, tp.persistence, tp.lacunarity);
+        // Multi-layered terrain generation
+        // Layer 1: Continental base using low-frequency noise
+        float continentalNoise = mPerlin->fractalNoise2D(nx * 0.25f, ny * 0.25f, 3, 0.5f, 2.0f);
         
-        // Mountain ridges using ridged noise
-        float ridgeNoise = mPerlin->ridgedNoise2D(nx * 0.5f, ny * 0.5f, tp.octaves - 2, 0.5f, 2.0f, 1.0f);
+        // Layer 2: Regional terrain using fractal noise
+        float regionalNoise = mPerlin->fractalNoise2D(nx, ny, tp.octaves, tp.persistence, tp.lacunarity);
         
-        // Valleys using voronoi
-        float voronoiNoise = mVoronoi->distanceToNearest(nx * 2.0f, ny * 2.0f);
+        // Layer 3: Mountain ridges using ridged multifractal
+        float ridgeNoise = mPerlin->ridgedNoise2D(nx * 0.5f, ny * 0.5f, 
+            std::max(1, tp.octaves - 2), 0.5f, 2.0f, 1.0f);
         
-        // Combine noise types
-        float combinedNoise = baseNoise * 0.5f + ridgeNoise * 0.3f - voronoiNoise * tp.valleyDepth * 0.2f;
+        // Layer 4: Valley carving using Voronoi
+        float voronoiDist = mVoronoi->distanceToNearest(nx * 2.0f, ny * 2.0f);
+        float valleyNoise = std::max(0.0f, 1.0f - voronoiDist * 2.0f);
         
-        // Apply roughness
-        if (tp.roughness > 0.0f)
+        // Layer 5: Fine detail using high-frequency turbulence
+        float detailNoise = mPerlin->turbulence2D(nx * 4.0f, ny * 4.0f, 3, 0.5f, 2.0f);
+        
+        // Combine layers with weights
+        float combined = continentalNoise * 0.3f + 
+                         regionalNoise * 0.35f + 
+                         ridgeNoise * 0.25f - 
+                         valleyNoise * tp.valleyDepth * 0.15f +
+                         detailNoise * tp.roughness * 0.1f;
+        
+        // Apply erosion simulation (simplified thermal erosion)
+        if (tp.erosionStrength > 0.0f)
         {
-            float roughNoise = mPerlin->turbulence2D(nx * 4.0f, ny * 4.0f, 3, 0.5f, 2.0f);
-            combinedNoise += roughNoise * tp.roughness * 0.1f;
+            float erosionNoise = mPerlin->fractalNoise2D(nx * 8.0f, ny * 8.0f, 2, 0.5f, 2.0f);
+            combined -= std::abs(erosionNoise) * tp.erosionStrength * 0.1f;
         }
         
-        // Scale to height range
-        float height = tp.baseHeight + combinedNoise * tp.heightVariation;
+        // Scale to height range and add base
+        float height = tp.baseHeight + combined * tp.heightVariation;
         
-        return height;
+        // Clamp to valid range
+        return std::clamp(height, -32768.0f, 32767.0f);
     }
     
     float ProceduralGenerator::getSlopeAt(float worldX, float worldY) const
     {
-        const float delta = 8.0f;
+        const float delta = 32.0f; // Sample distance
         
         float h = generateHeight(worldX, worldY);
         float hx = generateHeight(worldX + delta, worldY);
@@ -104,21 +130,48 @@ namespace CSMProcs
     
     int ProceduralGenerator::getTextureForTerrain(float height, float slope) const
     {
-        // Simple texture selection based on height and slope
-        // In a full implementation, this would use the analyzed texture patterns
-        
         const TerrainParams& tp = mState.terrain;
-        float normalizedHeight = (height - tp.baseHeight) / (tp.heightVariation + 0.001f);
         
-        // Default texture indices (these would be mapped from analysis in full implementation)
-        if (slope > 0.5f)
-            return 2; // Rocky/cliff texture for steep slopes
-        else if (normalizedHeight > 0.6f)
-            return 3; // Mountain/highland texture
-        else if (normalizedHeight < -0.3f && tp.generateWater)
-            return 4; // Sandy/beach texture near water
+        // Normalize height to 0-1 range
+        float minH = tp.baseHeight - tp.heightVariation;
+        float maxH = tp.baseHeight + tp.heightVariation;
+        float range = maxH - minH;
+        float normalizedHeight = (range > 0.01f) ? (height - minH) / range : 0.5f;
+        
+        // Texture selection based on height zones and slope
+        // These indices correspond to typical Morrowind land textures
+        // 0 = underwater sand, 1 = grass, 2 = rock/cliff, 3 = dirt, 4 = snow/mountain
+        
+        if (slope > 0.7f)
+        {
+            // Very steep - rocky cliff
+            return 2;
+        }
+        else if (slope > 0.4f)
+        {
+            // Moderately steep - rocky/dirt mix
+            return (normalizedHeight > 0.6f) ? 2 : 3;
+        }
+        else if (normalizedHeight < 0.15f)
+        {
+            // Low elevation near water
+            return (tp.generateWater && height < tp.waterLevel + 50.0f) ? 0 : 1;
+        }
+        else if (normalizedHeight > 0.85f)
+        {
+            // High mountain
+            return 4;
+        }
+        else if (normalizedHeight > 0.65f)
+        {
+            // Highland
+            return 3;
+        }
         else
-            return 1; // Default grass/ground texture
+        {
+            // Normal terrain - grass
+            return 1;
+        }
     }
     
     std::vector<uint16_t> ProceduralGenerator::generateTextures(int cellX, int cellY) const
@@ -139,8 +192,11 @@ namespace CSMProcs
                 float height = generateHeight(worldX, worldY);
                 float slope = getSlopeAt(worldX, worldY);
                 
+                // Add some noise to texture boundaries for natural look
+                float texNoise = mPerlin->noise2D(worldX * 0.01f, worldY * 0.01f) * 0.1f;
+                
                 textures[ty * ESM::Land::LAND_TEXTURE_SIZE + tx] = 
-                    static_cast<uint16_t>(getTextureForTerrain(height, slope));
+                    static_cast<uint16_t>(getTextureForTerrain(height + texNoise * 100.0f, slope));
             }
         }
         
@@ -170,25 +226,26 @@ namespace CSMProcs
         mRunning = true;
         mCancelled = false;
         
-        int totalSteps = getTotalCells();
+        int totalSteps = 0;
+        if (mState.generateExteriors)
+            totalSteps += getTotalCells() * 2; // Terrain + Objects
         if (mState.generateInteriors)
-            totalSteps += mState.worldSizeX; // Approximate interior count
+            totalSteps += std::max(1, mState.worldSizeX / 4);
         if (mState.generatePathgrids)
             totalSteps += getTotalCells();
             
-        int currentStep = 0;
-        
         try
         {
             if (mState.generateExteriors)
             {
+                reportProgress(0, totalSteps, "Generating terrain...");
                 if (!generateTerrain())
                 {
                     mRunning = false;
                     return false;
                 }
-                currentStep += getTotalCells();
                 
+                reportProgress(getTotalCells(), totalSteps, "Placing objects...");
                 if (!generateObjects())
                 {
                     mRunning = false;
@@ -198,22 +255,26 @@ namespace CSMProcs
             
             if (mState.generateInteriors && !mCancelled)
             {
+                reportProgress(getTotalCells() * 2, totalSteps, "Generating interiors...");
                 if (!generateInteriors())
                 {
                     mRunning = false;
                     return false;
                 }
-                currentStep += mState.worldSizeX;
             }
             
             if (mState.generatePathgrids && !mCancelled)
             {
+                int offset = getTotalCells() * 2 + (mState.generateInteriors ? std::max(1, mState.worldSizeX / 4) : 0);
+                reportProgress(offset, totalSteps, "Generating pathgrids...");
                 if (!generatePathgrids())
                 {
                     mRunning = false;
                     return false;
                 }
             }
+            
+            reportProgress(totalSteps, totalSteps, "Generation complete!");
         }
         catch (const std::exception& e)
         {
@@ -252,42 +313,44 @@ namespace CSMProcs
     
     void ProceduralGenerator::createCell(int cellX, int cellY)
     {
-        CSMWorld::IdTable& cells = dynamic_cast<CSMWorld::IdTable&>(
+        CSMWorld::IdTree& cellTable = dynamic_cast<CSMWorld::IdTree&>(
             *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
         
-        std::string cellId = "#" + std::to_string(cellX) + "," + std::to_string(cellY);
+        std::string cellId = "#" + std::to_string(cellX) + ", " + std::to_string(cellY);
         ESM::RefId refId = ESM::RefId::stringRefId(cellId);
         
-        // Check if cell exists
-        int existingRow = cells.searchId(refId);
+        // Check if cell already exists
+        int existingRow = cellTable.searchId(refId);
         
         if (existingRow < 0)
         {
-            // Create new cell
-            int row = cells.rowCount();
+            // Create new exterior cell
+            auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, cellId);
             
-            // Use the collection directly to add the cell
-            auto& cellCollection = mData.getCells();
+            // Set cell as exterior (not interior)
+            int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+            createCmd->addNestedValue(parentIndex, interiorIndex, false);
             
-            CSMWorld::Cell newCell;
-            newCell.mId = refId;
-            newCell.mData.mFlags = ESM::Cell::HasWater;
-            newCell.mData.mX = cellX;
-            newCell.mData.mY = cellY;
-            newCell.mWater = mState.terrain.waterLevel;
-            newCell.mCellId.mWorldspace = ESM::RefId::stringRefId("sys::default");
-            newCell.mCellId.mPaged = true;
-            newCell.mCellId.mIndex.mX = cellX;
-            newCell.mCellId.mIndex.mY = cellY;
+            // Set water level
+            int waterColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_WaterLevel);
+            if (waterColumn >= 0)
+            {
+                createCmd->addValue(waterColumn, mState.terrain.waterLevel);
+            }
             
-            // Add using command for proper undo support
-            mDocument.getUndoStack().push(
-                new CSMWorld::CreateCommand(cells, refId.getRefIdString()));
+            mDocument.getUndoStack().push(createCmd.release());
         }
         else if (mState.overwriteExisting)
         {
-            // Update existing cell (water level, etc.)
-            // Could add modification commands here
+            // Update water level on existing cell
+            int waterColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_WaterLevel);
+            if (waterColumn >= 0)
+            {
+                QModelIndex index = cellTable.getModelIndex(cellId, waterColumn);
+                mDocument.getUndoStack().push(
+                    new CSMWorld::ModifyCommand(cellTable, index, mState.terrain.waterLevel));
+            }
         }
     }
     
@@ -295,6 +358,8 @@ namespace CSMProcs
     {
         CSMWorld::IdTable& landTable = dynamic_cast<CSMWorld::IdTable&>(
             *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Land)));
+        CSMWorld::IdTable& ltexTable = dynamic_cast<CSMWorld::IdTable&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_LandTextures)));
         
         std::string landId = CSMWorld::Land::createUniqueRecordId(cellX, cellY);
         ESM::RefId refId = ESM::RefId::stringRefId(landId);
@@ -307,53 +372,115 @@ namespace CSMProcs
             // Create new land record
             mDocument.getUndoStack().push(
                 new CSMWorld::CreateCommand(landTable, landId));
+            existingRow = landTable.searchId(refId);
         }
         
-        // Now get the land record and fill in the data
-        auto& landCollection = mData.getLand();
-        int landIndex = landCollection.searchId(refId);
+        if (existingRow < 0)
+            return; // Failed to create
         
-        if (landIndex >= 0)
+        // Generate height data
+        float cellWorldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE;
+        float cellWorldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE;
+        float vertexSize = static_cast<float>(ESM::Land::REAL_SIZE) / (ESM::Land::LAND_SIZE - 1);
+        
+        // Create height array
+        CSMWorld::LandHeightsColumn::DataType heights;
+        heights.resize(ESM::Land::LAND_NUM_VERTS);
+        
+        for (int vy = 0; vy < ESM::Land::LAND_SIZE; ++vy)
         {
-            // Generate height data
-            float cellWorldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE;
-            float cellWorldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE;
-            float vertexSize = static_cast<float>(ESM::Land::REAL_SIZE) / (ESM::Land::LAND_SIZE - 1);
-            
-            std::array<float, ESM::Land::LAND_NUM_VERTS> heights;
-            
-            for (int vy = 0; vy < ESM::Land::LAND_SIZE; ++vy)
+            for (int vx = 0; vx < ESM::Land::LAND_SIZE; ++vx)
             {
-                for (int vx = 0; vx < ESM::Land::LAND_SIZE; ++vx)
-                {
-                    float worldX = cellWorldX + vx * vertexSize;
-                    float worldY = cellWorldY + vy * vertexSize;
-                    
-                    heights[vy * ESM::Land::LAND_SIZE + vx] = generateHeight(worldX, worldY);
-                }
+                float worldX = cellWorldX + vx * vertexSize;
+                float worldY = cellWorldY + vy * vertexSize;
+                heights[vy * ESM::Land::LAND_SIZE + vx] = generateHeight(worldX, worldY);
             }
-            
-            // Generate textures
-            std::vector<uint16_t> textures = generateTextures(cellX, cellY);
-            
-            // Update using the height and texture columns
-            int heightColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandHeightsIndex);
-            int textureColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandTexturesIndex);
-            
-            if (heightColumn >= 0 && existingRow >= 0)
+        }
+        
+        // Create normals array (calculate from heights)
+        CSMWorld::LandNormalsColumn::DataType normals;
+        normals.resize(ESM::Land::LAND_NUM_VERTS * 3);
+        
+        for (int vy = 0; vy < ESM::Land::LAND_SIZE; ++vy)
+        {
+            for (int vx = 0; vx < ESM::Land::LAND_SIZE; ++vx)
             {
-                // Heights would be set via the model in a full implementation
-                // For now, direct land data modification
+                // Calculate normal from neighboring heights
+                float h = heights[vy * ESM::Land::LAND_SIZE + vx];
+                float hL = (vx > 0) ? heights[vy * ESM::Land::LAND_SIZE + vx - 1] : h;
+                float hR = (vx < ESM::Land::LAND_SIZE - 1) ? heights[vy * ESM::Land::LAND_SIZE + vx + 1] : h;
+                float hU = (vy > 0) ? heights[(vy - 1) * ESM::Land::LAND_SIZE + vx] : h;
+                float hD = (vy < ESM::Land::LAND_SIZE - 1) ? heights[(vy + 1) * ESM::Land::LAND_SIZE + vx] : h;
+                
+                // Calculate gradient
+                float dx = (hR - hL) / (2.0f * vertexSize);
+                float dy = (hD - hU) / (2.0f * vertexSize);
+                
+                // Normal vector (-dx, -dy, 1) normalized and scaled to 127
+                float len = std::sqrt(dx * dx + dy * dy + 1.0f);
+                int idx = (vy * ESM::Land::LAND_SIZE + vx) * 3;
+                normals[idx + 0] = static_cast<signed char>(std::clamp(-dx / len * 127.0f, -127.0f, 127.0f));
+                normals[idx + 1] = static_cast<signed char>(std::clamp(-dy / len * 127.0f, -127.0f, 127.0f));
+                normals[idx + 2] = static_cast<signed char>(std::clamp(1.0f / len * 127.0f, 0.0f, 127.0f));
             }
+        }
+        
+        // Create texture array
+        std::vector<uint16_t> textureVec = generateTextures(cellX, cellY);
+        CSMWorld::LandTexturesColumn::DataType textures;
+        textures.resize(ESM::Land::LAND_NUM_TEXTURES);
+        for (int i = 0; i < ESM::Land::LAND_NUM_TEXTURES; ++i)
+        {
+            textures[i] = textureVec[i];
+        }
+        
+        // Touch the land record first
+        mDocument.getUndoStack().push(
+            new CSMWorld::TouchLandCommand(landTable, ltexTable, landId));
+        
+        // Set heights
+        int heightColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandHeightsIndex);
+        if (heightColumn >= 0)
+        {
+            QVariant heightData;
+            heightData.setValue(heights);
+            QModelIndex heightIndex = landTable.getModelIndex(landId, heightColumn);
+            mDocument.getUndoStack().push(
+                new CSMWorld::ModifyCommand(landTable, heightIndex, heightData));
+        }
+        
+        // Set normals
+        int normalColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandNormalsIndex);
+        if (normalColumn >= 0)
+        {
+            QVariant normalData;
+            normalData.setValue(normals);
+            QModelIndex normalIndex = landTable.getModelIndex(landId, normalColumn);
+            mDocument.getUndoStack().push(
+                new CSMWorld::ModifyCommand(landTable, normalIndex, normalData));
+        }
+        
+        // Set textures
+        int textureColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandTexturesIndex);
+        if (textureColumn >= 0)
+        {
+            QVariant textureData;
+            textureData.setValue(textures);
+            QModelIndex textureIndex = landTable.getModelIndex(landId, textureColumn);
+            mDocument.getUndoStack().push(
+                new CSMWorld::ModifyCommand(landTable, textureIndex, textureData));
         }
     }
     
     bool ProceduralGenerator::generateObjects()
     {
-        if (!mState.useReference && mState.objects.treeDensity <= 0 && 
-            mState.objects.rockDensity <= 0 && mState.objects.grassDensity <= 0)
+        const ObjectPlacementParams& op = mState.objects;
+        
+        // Skip if no objects to place
+        if (op.treeDensity <= 0 && op.rockDensity <= 0 && 
+            op.grassDensity <= 0 && op.buildingDensity <= 0)
         {
-            return true; // Nothing to generate
+            return true;
         }
         
         int totalCells = getTotalCells();
@@ -369,7 +496,7 @@ namespace CSMProcs
                 placeObjectsInCell(cellX, cellY);
                 
                 ++currentCell;
-                reportProgress(currentCell, totalCells,
+                reportProgress(getTotalCells() + currentCell, totalCells * 2,
                     "Placing objects: Cell (" + std::to_string(cellX) + ", " + std::to_string(cellY) + ")");
             }
         }
@@ -385,9 +512,18 @@ namespace CSMProcs
         
         const ObjectPlacementParams& op = mState.objects;
         
-        // Use Poisson disk sampling for natural distribution
-        uint64_t cellSeed = mState.seed + static_cast<uint64_t>(cellX) * 73856093ULL 
-                          + static_cast<uint64_t>(cellY) * 19349663ULL;
+        // Seed for this cell (deterministic)
+        uint64_t cellSeed = mState.seed + 
+            static_cast<uint64_t>(cellX + 10000) * 73856093ULL + 
+            static_cast<uint64_t>(cellY + 10000) * 19349663ULL;
+        RandomGenerator cellRng(cellSeed);
+        
+        // Cell ID for references
+        std::string cellId = "#" + std::to_string(cellX) + ", " + std::to_string(cellY);
+        
+        // Get reference table
+        CSMWorld::IdTable& refTable = dynamic_cast<CSMWorld::IdTable&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_References)));
         
         // Generate density mask based on terrain
         const int maskSize = 16;
@@ -404,84 +540,190 @@ namespace CSMProcs
                 float height = generateHeight(worldX, worldY);
                 float slope = getSlopeAt(worldX, worldY);
                 
-                // Reduce density on steep slopes and very low/high areas
-                float slopeFactor = std::max(0.0f, 1.0f - slope * 2.0f);
+                // Reduce density on steep slopes
+                float slopeFactor = std::max(0.0f, 1.0f - slope * 1.5f);
                 float heightFactor = 1.0f;
                 
+                // No objects underwater
                 if (mState.terrain.generateWater && height < mState.terrain.waterLevel)
-                    heightFactor = 0.0f; // No objects underwater
+                {
+                    heightFactor = 0.0f;
+                }
+                // Fewer objects on mountaintops
                 else if (height > mState.terrain.baseHeight + mState.terrain.heightVariation * 0.8f)
-                    heightFactor = 0.3f; // Fewer objects on mountaintops
+                {
+                    heightFactor = 0.3f;
+                }
                     
                 densityMask[my * maskSize + mx] = slopeFactor * heightFactor;
             }
         }
         
-        // Place trees
-        if (op.treeDensity > 0.0f)
+        // Object categories to place
+        struct ObjectCategory
         {
-            float treeSpacing = op.minSpacing / std::sqrt(op.treeDensity);
-            PoissonDiskSampler treeSampler(cellSeed, treeSpacing, cellSize, cellSize);
-            
-            std::vector<float> treeMask = densityMask;
-            for (float& d : treeMask)
-                d *= op.treeDensity;
-                
-            auto treePoints = treeSampler.generatePointsWithMask(treeMask, maskSize, maskSize);
-            
-            std::vector<std::string> treeObjects = getObjectsFromReference("tree");
-            if (treeObjects.empty())
+            std::string name;
+            float density;
+            std::vector<std::string> objects;
+        };
+        
+        std::vector<ObjectCategory> categories;
+        
+        // Trees
+        if (op.treeDensity > 0.01f)
+        {
+            ObjectCategory trees;
+            trees.name = "tree";
+            trees.density = op.treeDensity;
+            trees.objects = getObjectsFromReference("tree");
+            if (trees.objects.empty())
             {
-                // Default tree objects if no reference
-                treeObjects = {"flora_tree_gl_01", "flora_tree_gl_02", "flora_tree_gl_03"};
+                // Default Morrowind-style trees
+                trees.objects = {
+                    "flora_tree_gl_01", "flora_tree_gl_02", "flora_tree_gl_03",
+                    "flora_tree_ai_01", "flora_tree_ai_02",
+                    "flora_bc_tree_01", "flora_bc_tree_02"
+                };
             }
-            
-            for (const auto& [localX, localY] : treePoints)
-            {
-                float worldX = cellWorldX + localX;
-                float worldY = cellWorldY + localY;
-                float height = generateHeight(worldX, worldY);
-                
-                // Select random tree
-                std::string treeId = treeObjects[mRng->nextInt(static_cast<uint32_t>(treeObjects.size()))];
-                
-                // Create reference (simplified - full implementation would use commands)
-                float rotation = mRng->nextFloatRange(0.0f, 6.28318f) * op.rotationVariation;
-                float scale = 1.0f + mRng->nextFloatRange(-op.scaleVariation, op.scaleVariation);
-                
-                // In a full implementation, we would create a CellRef here
-            }
+            categories.push_back(trees);
         }
         
-        // Place rocks
-        if (op.rockDensity > 0.0f)
+        // Rocks
+        if (op.rockDensity > 0.01f)
         {
-            float rockSpacing = op.minSpacing / std::sqrt(op.rockDensity);
-            PoissonDiskSampler rockSampler(cellSeed + 1, rockSpacing, cellSize, cellSize);
-            
-            std::vector<float> rockMask = densityMask;
-            for (float& d : rockMask)
-                d *= op.rockDensity;
-                
-            auto rockPoints = rockSampler.generatePointsWithMask(rockMask, maskSize, maskSize);
-            
-            std::vector<std::string> rockObjects = getObjectsFromReference("rock");
-            if (rockObjects.empty())
+            ObjectCategory rocks;
+            rocks.name = "rock";
+            rocks.density = op.rockDensity;
+            rocks.objects = getObjectsFromReference("rock");
+            if (rocks.objects.empty())
             {
-                rockObjects = {"terrain_rock_ai_01", "terrain_rock_ai_02"};
+                rocks.objects = {
+                    "terrain_rock_ai_01", "terrain_rock_ai_02", "terrain_rock_ai_03",
+                    "terrain_rock_bc_01", "terrain_rock_bc_02",
+                    "terrain_rock_gl_01", "terrain_rock_gl_02"
+                };
             }
-            
-            for (const auto& [localX, localY] : rockPoints)
+            categories.push_back(rocks);
+        }
+        
+        // Grass/Flora
+        if (op.grassDensity > 0.01f)
+        {
+            ObjectCategory grass;
+            grass.name = "grass";
+            grass.density = op.grassDensity;
+            grass.objects = getObjectsFromReference("grass");
+            if (grass.objects.empty())
             {
+                grass.objects = {
+                    "flora_grass_01", "flora_grass_02", "flora_grass_03",
+                    "flora_plant_01", "flora_plant_02",
+                    "flora_bc_fern_01", "flora_bc_fern_02"
+                };
+            }
+            categories.push_back(grass);
+        }
+        
+        // Place objects for each category
+        for (const auto& category : categories)
+        {
+            float spacing = op.minSpacing / std::sqrt(category.density);
+            PoissonDiskSampler sampler(cellSeed + std::hash<std::string>{}(category.name), 
+                                       spacing, cellSize, cellSize);
+            
+            // Modify density mask for this category
+            std::vector<float> categoryMask = densityMask;
+            for (float& d : categoryMask)
+                d *= category.density;
+            
+            auto points = sampler.generatePointsWithMask(categoryMask, maskSize, maskSize);
+            
+            for (const auto& [localX, localY] : points)
+            {
+                if (mCancelled)
+                    return;
+                    
                 float worldX = cellWorldX + localX;
                 float worldY = cellWorldY + localY;
                 float height = generateHeight(worldX, worldY);
                 
-                std::string rockId = rockObjects[mRng->nextInt(static_cast<uint32_t>(rockObjects.size()))];
-                float rotation = mRng->nextFloatRange(0.0f, 6.28318f);
-                float scale = 1.0f + mRng->nextFloatRange(-op.scaleVariation * 1.5f, op.scaleVariation * 1.5f);
+                // Skip if underwater
+                if (mState.terrain.generateWater && height < mState.terrain.waterLevel)
+                    continue;
+                
+                // Select random object from category
+                if (category.objects.empty())
+                    continue;
+                    
+                size_t objIndex = cellRng.nextInt(static_cast<uint32_t>(category.objects.size()));
+                std::string objectId = category.objects[objIndex];
+                
+                // Calculate rotation
+                float rotation = cellRng.nextFloatRange(0.0f, 6.28318f) * op.rotationVariation;
+                
+                // Calculate scale
+                float scale = 1.0f + cellRng.nextFloatRange(-op.scaleVariation, op.scaleVariation);
+                scale = std::max(0.5f, scale);
+                
+                // Create reference
+                createReference(objectId, cellId, worldX, worldY, height, rotation, scale);
             }
         }
+    }
+    
+    void ProceduralGenerator::createReference(const std::string& objectId, const std::string& cellId,
+                                               float x, float y, float z, float rotation, float scale)
+    {
+        CSMWorld::IdTable& refTable = dynamic_cast<CSMWorld::IdTable&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_References)));
+        
+        // Generate unique reference ID
+        std::string refId = mData.getReferences().getNewId();
+        
+        // Create the reference
+        auto createCmd = std::make_unique<CSMWorld::CreateCommand>(refTable, refId);
+        
+        // Set object ID
+        int refIdColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_ReferenceableId);
+        if (refIdColumn >= 0)
+        {
+            createCmd->addValue(refIdColumn, QString::fromStdString(objectId));
+        }
+        
+        // Set cell
+        int cellColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+        if (cellColumn >= 0)
+        {
+            createCmd->addValue(cellColumn, QString::fromStdString(cellId));
+        }
+        
+        // Set position
+        int posXColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionXPos);
+        int posYColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionYPos);
+        int posZColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionZPos);
+        
+        if (posXColumn >= 0)
+            createCmd->addValue(posXColumn, static_cast<double>(x));
+        if (posYColumn >= 0)
+            createCmd->addValue(posYColumn, static_cast<double>(y));
+        if (posZColumn >= 0)
+            createCmd->addValue(posZColumn, static_cast<double>(z));
+        
+        // Set rotation (Z axis)
+        int rotZColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionZRot);
+        if (rotZColumn >= 0)
+        {
+            createCmd->addValue(rotZColumn, static_cast<double>(rotation));
+        }
+        
+        // Set scale
+        int scaleColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_Scale);
+        if (scaleColumn >= 0)
+        {
+            createCmd->addValue(scaleColumn, static_cast<double>(scale));
+        }
+        
+        mDocument.getUndoStack().push(createCmd.release());
     }
     
     std::vector<std::string> ProceduralGenerator::getObjectsFromReference(const std::string& category) const
@@ -490,13 +732,49 @@ namespace CSMProcs
         
         if (!mState.useReference || !mState.analysis.isValid)
             return objects;
-            
-        // Get objects from analyzed patterns
-        auto it = mState.analysis.objectDensityByType.find(category);
-        if (it != mState.analysis.objectDensityByType.end())
+        
+        // Search through referenceables for matching objects
+        const auto& refIdCollection = mData.getReferenceables();
+        
+        for (int i = 0; i < refIdCollection.getSize(); ++i)
         {
-            // In a full implementation, we would store actual object IDs during analysis
-            // For now, return empty to use defaults
+            std::string refId = refIdCollection.getId(i).getRefIdString();
+            
+            // Convert to lowercase for comparison
+            std::string lowerRefId = refId;
+            std::transform(lowerRefId.begin(), lowerRefId.end(), lowerRefId.begin(), ::tolower);
+            
+            bool matches = false;
+            
+            if (category == "tree")
+            {
+                matches = (lowerRefId.find("tree") != std::string::npos || 
+                          lowerRefId.find("flora_tree") != std::string::npos);
+            }
+            else if (category == "rock")
+            {
+                matches = (lowerRefId.find("rock") != std::string::npos ||
+                          lowerRefId.find("terrain_rock") != std::string::npos ||
+                          lowerRefId.find("stone") != std::string::npos);
+            }
+            else if (category == "grass")
+            {
+                matches = (lowerRefId.find("grass") != std::string::npos ||
+                          lowerRefId.find("flora_grass") != std::string::npos ||
+                          lowerRefId.find("plant") != std::string::npos ||
+                          lowerRefId.find("fern") != std::string::npos);
+            }
+            else if (category == "building")
+            {
+                matches = (lowerRefId.find("house") != std::string::npos ||
+                          lowerRefId.find("building") != std::string::npos ||
+                          lowerRefId.find("hut") != std::string::npos);
+            }
+            
+            if (matches)
+            {
+                objects.push_back(refId);
+            }
         }
         
         return objects;
@@ -515,13 +793,18 @@ namespace CSMProcs
     
     bool ProceduralGenerator::generateInteriors()
     {
-        // Generate some interior cells based on configuration
-        int interiorCount = std::max(1, mState.worldSizeX / 4);
+        const InteriorParams& ip = mState.interiors;
+        
+        // Generate interior cells - one per few exterior cells
+        int interiorCount = std::max(1, (mState.worldSizeX * mState.worldSizeY) / 16);
+        
+        CSMWorld::IdTree& cellTable = dynamic_cast<CSMWorld::IdTree&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
         
         for (int i = 0; i < interiorCount && !mCancelled; ++i)
         {
             std::string name = "Proc_Interior_" + std::to_string(mState.seed) + "_" + std::to_string(i);
-            int roomCount = mRng->nextIntRange(mState.interiors.minRooms, mState.interiors.maxRooms);
+            int roomCount = mRng->nextIntRange(ip.minRooms, ip.maxRooms);
             
             createInterior(name, roomCount);
             
@@ -533,26 +816,194 @@ namespace CSMProcs
     
     void ProceduralGenerator::createInterior(const std::string& name, int roomCount)
     {
-        // Interior generation is complex and would involve:
-        // 1. Creating an interior cell
-        // 2. Generating room layout using BSP or similar
-        // 3. Placing walls, floors, ceilings
-        // 4. Adding doors between rooms
-        // 5. Placing furniture and clutter
-        // 6. Adding lighting
-        
-        // This is a placeholder for the full implementation
-        CSMWorld::IdTable& cells = dynamic_cast<CSMWorld::IdTable&>(
+        CSMWorld::IdTree& cellTable = dynamic_cast<CSMWorld::IdTree&>(
             *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
         
         ESM::RefId refId = ESM::RefId::stringRefId(name);
         
-        int existingRow = cells.searchId(refId);
+        // Check if cell exists
+        int existingRow = cellTable.searchId(refId);
+        if (existingRow >= 0 && !mState.overwriteExisting)
+            return;
+        
         if (existingRow < 0)
         {
-            mDocument.getUndoStack().push(
-                new CSMWorld::CreateCommand(cells, name));
+            // Create interior cell
+            auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, name);
+            
+            // Set as interior
+            int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            
+            // Set ambient lighting
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            if (ambientColumn >= 0)
+            {
+                // Dim interior lighting
+                int ambientColor = (40 << 16) | (35 << 8) | 30; // RGB
+                createCmd->addValue(ambientColumn, ambientColor);
+            }
+            
+            mDocument.getUndoStack().push(createCmd.release());
         }
+        
+        // Generate room layout using BSP
+        generateBSPInterior(name, roomCount);
+    }
+    
+    void ProceduralGenerator::generateBSPInterior(const std::string& cellName, int roomCount)
+    {
+        const InteriorParams& ip = mState.interiors;
+        
+        // BSP-based room generation
+        struct BSPNode
+        {
+            float x, y, width, height;
+            BSPNode* left = nullptr;
+            BSPNode* right = nullptr;
+            bool isRoom = false;
+            float roomX, roomY, roomW, roomH;
+        };
+        
+        // Initial space
+        float totalWidth = ip.roomSizeMax * std::sqrt(static_cast<float>(roomCount));
+        float totalHeight = totalWidth;
+        
+        std::unique_ptr<BSPNode> root = std::make_unique<BSPNode>();
+        root->x = -totalWidth / 2;
+        root->y = -totalHeight / 2;
+        root->width = totalWidth;
+        root->height = totalHeight;
+        
+        // Recursive BSP split
+        std::queue<BSPNode*> toSplit;
+        toSplit.push(root.get());
+        int roomsCreated = 0;
+        
+        while (!toSplit.empty() && roomsCreated < roomCount)
+        {
+            BSPNode* node = toSplit.front();
+            toSplit.pop();
+            
+            bool splitHorizontal = mRng->nextBool(0.5f);
+            if (node->width > node->height * 1.25f)
+                splitHorizontal = false;
+            else if (node->height > node->width * 1.25f)
+                splitHorizontal = true;
+            
+            float minSize = ip.roomSizeMin * 1.5f;
+            
+            if (splitHorizontal && node->height > minSize * 2)
+            {
+                float split = mRng->nextFloatRange(0.4f, 0.6f);
+                node->left = new BSPNode();
+                node->left->x = node->x;
+                node->left->y = node->y;
+                node->left->width = node->width;
+                node->left->height = node->height * split;
+                
+                node->right = new BSPNode();
+                node->right->x = node->x;
+                node->right->y = node->y + node->height * split;
+                node->right->width = node->width;
+                node->right->height = node->height * (1.0f - split);
+                
+                toSplit.push(node->left);
+                toSplit.push(node->right);
+            }
+            else if (!splitHorizontal && node->width > minSize * 2)
+            {
+                float split = mRng->nextFloatRange(0.4f, 0.6f);
+                node->left = new BSPNode();
+                node->left->x = node->x;
+                node->left->y = node->y;
+                node->left->width = node->width * split;
+                node->left->height = node->height;
+                
+                node->right = new BSPNode();
+                node->right->x = node->x + node->width * split;
+                node->right->y = node->y;
+                node->right->width = node->width * (1.0f - split);
+                node->right->height = node->height;
+                
+                toSplit.push(node->left);
+                toSplit.push(node->right);
+            }
+            else
+            {
+                // Create room in this leaf
+                node->isRoom = true;
+                float padding = ip.corridorWidth;
+                node->roomX = node->x + padding;
+                node->roomY = node->y + padding;
+                node->roomW = std::max(ip.roomSizeMin, node->width - padding * 2);
+                node->roomH = std::max(ip.roomSizeMin, node->height - padding * 2);
+                ++roomsCreated;
+            }
+        }
+        
+        // Collect all rooms
+        std::vector<BSPNode*> rooms;
+        std::queue<BSPNode*> toVisit;
+        toVisit.push(root.get());
+        
+        while (!toVisit.empty())
+        {
+            BSPNode* node = toVisit.front();
+            toVisit.pop();
+            
+            if (node->isRoom)
+            {
+                rooms.push_back(node);
+            }
+            else
+            {
+                if (node->left) toVisit.push(node->left);
+                if (node->right) toVisit.push(node->right);
+            }
+        }
+        
+        // Place objects in rooms
+        for (size_t i = 0; i < rooms.size(); ++i)
+        {
+            BSPNode* room = rooms[i];
+            
+            // Generate room furniture
+            if (ip.generateLighting)
+            {
+                // Place a light in the center
+                float lightX = room->roomX + room->roomW / 2;
+                float lightY = room->roomY + room->roomH / 2;
+                float lightZ = ip.ceilingHeight * 0.8f;
+                
+                createReference("light_com_candle_01", cellName, lightX, lightY, lightZ, 0, 1.0f);
+            }
+            
+            if (ip.generateContainers && mRng->nextBool(ip.clutter))
+            {
+                // Place a container
+                float contX = room->roomX + mRng->nextFloatRange(0.2f, 0.8f) * room->roomW;
+                float contY = room->roomY + mRng->nextFloatRange(0.2f, 0.8f) * room->roomH;
+                
+                std::vector<std::string> containers = {"contain_barrel_01", "contain_crate_01", "chest_small_01"};
+                std::string containerId = containers[mRng->nextInt(static_cast<uint32_t>(containers.size()))];
+                
+                createReference(containerId, cellName, contX, contY, 0, mRng->nextFloatRange(0, 6.28f), 1.0f);
+            }
+        }
+        
+        // Clean up BSP tree
+        std::function<void(BSPNode*)> cleanup = [&cleanup](BSPNode* node) {
+            if (node)
+            {
+                cleanup(node->left);
+                cleanup(node->right);
+                delete node->left;
+                delete node->right;
+            }
+        };
+        cleanup(root.get());
     }
     
     bool ProceduralGenerator::generatePathgrids()
@@ -580,23 +1031,123 @@ namespace CSMProcs
     
     void ProceduralGenerator::generatePathgridForCell(int cellX, int cellY)
     {
-        // Pathgrid generation involves:
-        // 1. Creating a grid of potential waypoints
-        // 2. Testing walkability (not underwater, not too steep)
-        // 3. Connecting nearby walkable points
-        // 4. Optimizing the graph
+        CSMWorld::IdTable& pathgridTable = dynamic_cast<CSMWorld::IdTable&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Pathgrids)));
         
-        // This is a placeholder for full implementation
+        std::string cellId = "#" + std::to_string(cellX) + ", " + std::to_string(cellY);
+        ESM::RefId refId = ESM::RefId::stringRefId(cellId);
+        
+        // Check if pathgrid exists
+        int existingRow = pathgridTable.searchId(refId);
+        if (existingRow >= 0 && !mState.overwriteExisting)
+            return;
+        
+        float cellWorldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE;
+        float cellWorldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE;
+        float cellSize = static_cast<float>(ESM::Land::REAL_SIZE);
+        
+        // Generate walkable points on a grid
+        const int gridSize = 8; // 8x8 grid of potential points
+        float gridStep = cellSize / gridSize;
+        
+        std::vector<ESM::Pathgrid::Point> points;
+        std::vector<std::pair<int, int>> validIndices;
+        
+        // Generate points
+        for (int gy = 0; gy < gridSize; ++gy)
+        {
+            for (int gx = 0; gx < gridSize; ++gx)
+            {
+                float worldX = cellWorldX + (gx + 0.5f) * gridStep;
+                float worldY = cellWorldY + (gy + 0.5f) * gridStep;
+                float height = generateHeight(worldX, worldY);
+                float slope = getSlopeAt(worldX, worldY);
+                
+                // Check if walkable
+                bool walkable = true;
+                
+                // Too steep
+                if (slope > 0.6f)
+                    walkable = false;
+                
+                // Underwater
+                if (mState.terrain.generateWater && height < mState.terrain.waterLevel)
+                    walkable = false;
+                
+                if (walkable)
+                {
+                    // Convert to cell-local coordinates
+                    int localX = static_cast<int>(worldX - cellWorldX);
+                    int localY = static_cast<int>(worldY - cellWorldY);
+                    int localZ = static_cast<int>(height);
+                    
+                    ESM::Pathgrid::Point point(localX, localY, localZ);
+                    point.mAutogenerated = 1;
+                    points.push_back(point);
+                    validIndices.push_back({gx, gy});
+                }
+            }
+        }
+        
+        if (points.empty())
+            return;
+        
+        // Generate edges (connect nearby walkable points)
+        std::vector<ESM::Pathgrid::Edge> edges;
+        
+        for (size_t i = 0; i < validIndices.size(); ++i)
+        {
+            for (size_t j = i + 1; j < validIndices.size(); ++j)
+            {
+                int dx = std::abs(validIndices[i].first - validIndices[j].first);
+                int dy = std::abs(validIndices[i].second - validIndices[j].second);
+                
+                // Connect only adjacent points (including diagonals)
+                if (dx <= 1 && dy <= 1)
+                {
+                    // Check height difference
+                    float heightDiff = std::abs(points[i].mZ - points[j].mZ);
+                    if (heightDiff < 200.0f) // Reasonable step height
+                    {
+                        ESM::Pathgrid::Edge edge;
+                        edge.mV0 = i;
+                        edge.mV1 = j;
+                        edges.push_back(edge);
+                        
+                        // Update connection count
+                        ++points[i].mConnectionNum;
+                        ++points[j].mConnectionNum;
+                    }
+                }
+            }
+        }
+        
+        // Create pathgrid record if it doesn't exist
+        if (existingRow < 0)
+        {
+            mDocument.getUndoStack().push(
+                new CSMWorld::CreatePathgridCommand(pathgridTable, cellId));
+        }
+        
+        // Set pathgrid data using the model
+        // Note: In a complete implementation, we would set the points and edges
+        // through the appropriate columns. For now, we create the basic structure.
     }
     
     bool ProceduralGenerator::previewCell(int cellX, int cellY)
     {
         mCancelled = false;
         
+        reportProgress(0, 3, "Creating cell...");
         createCell(cellX, cellY);
+        
+        reportProgress(1, 3, "Creating terrain...");
         createLand(cellX, cellY);
+        
+        reportProgress(2, 3, "Placing objects...");
         placeObjectsInCell(cellX, cellY);
         
+        reportProgress(3, 3, "Preview complete!");
         return true;
     }
 }

@@ -268,6 +268,8 @@ namespace CSVDoc
         void merge();
 
         void onRequestFocus(const std::string& id);
+        
+        void openProceduralGenerator();
     };
 }
 
