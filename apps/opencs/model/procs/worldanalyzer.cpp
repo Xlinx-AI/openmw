@@ -203,8 +203,11 @@ namespace CSMProcs
         // Convert to frequency map with texture names
         if (totalTextures > 0)
         {
-            for (const auto& [texIdx, count] : textureUsageCount)
+            for (const auto& pair : textureUsageCount)
             {
+                int texIdx = pair.first;
+                int count = pair.second;
+                
                 // Try to find texture name from index
                 std::string texName = "texture_" + std::to_string(texIdx);
                 
@@ -305,8 +308,10 @@ namespace CSMProcs
         float worldArea = validCells.size() * ESM::Land::REAL_SIZE * ESM::Land::REAL_SIZE;
         if (worldArea > 0)
         {
-            for (const auto& [type, count] : objectCounts)
+            for (const auto& pair : objectCounts)
             {
+                const std::string& type = pair.first;
+                int count = pair.second;
                 results.objectDensityByType[type] = static_cast<float>(count) / worldArea * 1000000.0f; // per million sq units
             }
         }

@@ -856,27 +856,29 @@ namespace CSMProcs
     {
         const InteriorParams& ip = mState.interiors;
         
-        // BSP-based room generation
+        // BSP-based room generation with smart pointers
         struct BSPNode
         {
             float x, y, width, height;
-            BSPNode* left = nullptr;
-            BSPNode* right = nullptr;
+            std::unique_ptr<BSPNode> left;
+            std::unique_ptr<BSPNode> right;
             bool isRoom = false;
             float roomX, roomY, roomW, roomH;
+            
+            BSPNode() = default;
         };
         
         // Initial space
         float totalWidth = ip.roomSizeMax * std::sqrt(static_cast<float>(roomCount));
         float totalHeight = totalWidth;
         
-        std::unique_ptr<BSPNode> root = std::make_unique<BSPNode>();
+        auto root = std::make_unique<BSPNode>();
         root->x = -totalWidth / 2;
         root->y = -totalHeight / 2;
         root->width = totalWidth;
         root->height = totalHeight;
         
-        // Recursive BSP split
+        // Recursive BSP split using raw pointers for queue (ownership stays with parent)
         std::queue<BSPNode*> toSplit;
         toSplit.push(root.get());
         int roomsCreated = 0;
@@ -897,38 +899,38 @@ namespace CSMProcs
             if (splitHorizontal && node->height > minSize * 2)
             {
                 float split = mRng->nextFloatRange(0.4f, 0.6f);
-                node->left = new BSPNode();
+                node->left = std::make_unique<BSPNode>();
                 node->left->x = node->x;
                 node->left->y = node->y;
                 node->left->width = node->width;
                 node->left->height = node->height * split;
                 
-                node->right = new BSPNode();
+                node->right = std::make_unique<BSPNode>();
                 node->right->x = node->x;
                 node->right->y = node->y + node->height * split;
                 node->right->width = node->width;
                 node->right->height = node->height * (1.0f - split);
                 
-                toSplit.push(node->left);
-                toSplit.push(node->right);
+                toSplit.push(node->left.get());
+                toSplit.push(node->right.get());
             }
             else if (!splitHorizontal && node->width > minSize * 2)
             {
                 float split = mRng->nextFloatRange(0.4f, 0.6f);
-                node->left = new BSPNode();
+                node->left = std::make_unique<BSPNode>();
                 node->left->x = node->x;
                 node->left->y = node->y;
                 node->left->width = node->width * split;
                 node->left->height = node->height;
                 
-                node->right = new BSPNode();
+                node->right = std::make_unique<BSPNode>();
                 node->right->x = node->x + node->width * split;
                 node->right->y = node->y;
                 node->right->width = node->width * (1.0f - split);
                 node->right->height = node->height;
                 
-                toSplit.push(node->left);
-                toSplit.push(node->right);
+                toSplit.push(node->left.get());
+                toSplit.push(node->right.get());
             }
             else
             {
@@ -959,8 +961,8 @@ namespace CSMProcs
             }
             else
             {
-                if (node->left) toVisit.push(node->left);
-                if (node->right) toVisit.push(node->right);
+                if (node->left) toVisit.push(node->left.get());
+                if (node->right) toVisit.push(node->right.get());
             }
         }
         
@@ -993,17 +995,7 @@ namespace CSMProcs
             }
         }
         
-        // Clean up BSP tree
-        std::function<void(BSPNode*)> cleanup = [&cleanup](BSPNode* node) {
-            if (node)
-            {
-                cleanup(node->left);
-                cleanup(node->right);
-                delete node->left;
-                delete node->right;
-            }
-        };
-        cleanup(root.get());
+        // BSP tree cleanup is automatic via unique_ptr
     }
     
     bool ProceduralGenerator::generatePathgrids()
