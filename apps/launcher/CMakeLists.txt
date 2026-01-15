@@ -69,6 +69,7 @@ endif (WIN32)
 target_link_libraries(openmw-launcher
     SDL2::SDL2
     ${OPENAL_LIBRARY}
+    components
     components_qt
 )
 
