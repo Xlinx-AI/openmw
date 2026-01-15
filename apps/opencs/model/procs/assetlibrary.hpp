@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "proceduralstate.hpp"
+
 namespace CSMWorld
 {
     class Data;
@@ -69,19 +71,6 @@ namespace CSMProcs
         // For grouped assets (e.g., wall segments)
         std::string groupId; // Group identifier for related assets
         int groupIndex = 0; // Order within group (e.g., wall start, middle, end)
-    };
-
-    /// Settlement type enumeration
-    enum class SettlementType
-    {
-        Farm, // 1-3 buildings, no walls
-        Hamlet, // 5-10 buildings, no walls
-        Village, // 10-30 buildings, optional palisade
-        Town, // 30-100 buildings, walls common
-        City, // 100-500 buildings, walls
-        Metropolis, // 500+ buildings, multiple wall rings
-        Fortress, // Military settlement with strong walls
-        Castle // Single large structure with grounds
     };
 
     /// Configuration for settlement walls

@@ -356,7 +356,7 @@ namespace CSMProcs
         ESM::RefId refId = ESM::RefId::stringRefId(cellId);
         
         // Check if cell already exists
-        int existingRow = cellTable.searchId(refId);
+        int existingRow = mData.getCells().searchId(refId);
         
         if (existingRow < 0)
         {
@@ -401,14 +401,14 @@ namespace CSMProcs
         ESM::RefId refId = ESM::RefId::stringRefId(landId);
         
         // Check if land exists
-        int existingRow = landTable.searchId(refId);
+        int existingRow = mData.getLand().searchId(refId);
         
         if (existingRow < 0)
         {
             // Create new land record
             mDocument.getUndoStack().push(
                 new CSMWorld::CreateCommand(landTable, landId));
-            existingRow = landTable.searchId(refId);
+            existingRow = mData.getLand().searchId(refId);
         }
         
         if (existingRow < 0)
@@ -911,7 +911,7 @@ namespace CSMProcs
         ESM::RefId refId = ESM::RefId::stringRefId(name);
         
         // Check if cell exists
-        int existingRow = cellTable.searchId(refId);
+        int existingRow = mData.getCells().searchId(refId);
         if (existingRow >= 0 && !mState.overwriteExisting)
             return;
         
@@ -926,7 +926,7 @@ namespace CSMProcs
             createCmd->addNestedValue(parentIndex, interiorIndex, true);
             
             // Set ambient lighting
-            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
             if (ambientColumn >= 0)
             {
                 // Dim interior lighting
@@ -1119,7 +1119,7 @@ namespace CSMProcs
         ESM::RefId refId = ESM::RefId::stringRefId(cellId);
         
         // Check if pathgrid exists
-        int existingRow = pathgridTable.searchId(refId);
+        int existingRow = mData.getPathgrids().searchId(refId);
         if (existingRow >= 0 && !mState.overwriteExisting)
             return;
         
@@ -1893,7 +1893,7 @@ namespace CSMProcs
             *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
         
         ESM::RefId refId = ESM::RefId::stringRefId(cellName);
-        int existingRow = cellTable.searchId(refId);
+        int existingRow = mData.getCells().searchId(refId);
         
         if (existingRow >= 0 && !mState.overwriteExisting)
             return;
@@ -1907,7 +1907,7 @@ namespace CSMProcs
             createCmd->addNestedValue(parentIndex, interiorIndex, true);
             
             // Dark cave lighting
-            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
             if (ambientColumn >= 0)
             {
                 int ambientColor = (20 << 16) | (20 << 8) | 25; // Very dark blue-ish
@@ -1953,7 +1953,7 @@ namespace CSMProcs
             *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
         
         ESM::RefId refId = ESM::RefId::stringRefId(cellName);
-        int existingRow = cellTable.searchId(refId);
+        int existingRow = mData.getCells().searchId(refId);
         
         if (existingRow >= 0 && !mState.overwriteExisting)
             return;
@@ -1967,7 +1967,7 @@ namespace CSMProcs
             createCmd->addNestedValue(parentIndex, interiorIndex, true);
             
             // Dungeon lighting (slightly less dark than caves)
-            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
             if (ambientColumn >= 0)
             {
                 int ambientColor = (30 << 16) | (25 << 8) | 20; // Dim brownish
