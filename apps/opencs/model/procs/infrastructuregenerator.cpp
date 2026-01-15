@@ -1044,7 +1044,13 @@ namespace CSMProcs
 
                 float dx = x2 - x1;
                 float dy = y2 - y1;
-                float t = std::max(0.0f, std::min(1.0f, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)));
+                float lengthSq = dx * dx + dy * dy;
+                
+                // Skip degenerate segments
+                if (lengthSq < 0.001f)
+                    continue;
+                
+                float t = std::max(0.0f, std::min(1.0f, ((x - x1) * dx + (y - y1) * dy) / lengthSq));
 
                 float nearX = x1 + t * dx;
                 float nearY = y1 + t * dy;
