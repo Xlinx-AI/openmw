@@ -10,6 +10,7 @@
 #include "../mwworld/cellstore.hpp"
 
 #include "context.hpp"
+#include "object.hpp"
 #include "luabindings.hpp"
 
 namespace MWLua
