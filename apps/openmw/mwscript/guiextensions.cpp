@@ -7,6 +7,8 @@
 #include <components/interpreter/opcodes.hpp>
 #include <components/interpreter/runtime.hpp>
 
+#include <components/misc/strings/algorithm.hpp>
+
 #include "../mwworld/esmstore.hpp"
 
 #include "../mwbase/environment.hpp"
@@ -130,7 +132,7 @@ namespace MWScript
                 for (auto it = cells.extBegin(); it != cells.extEnd(); ++it)
                 {
                     const auto& cellName = it->mName;
-                    if (Misc::StringUtils::ciStartsWith(cellName, cell))
+                    if (::Misc::StringUtils::ciStartsWith(cellName, cell))
                         winMgr->addVisitedLocation(cellName, it->getGridX(), it->getGridY());
                 }
             }

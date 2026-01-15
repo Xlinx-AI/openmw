@@ -24,23 +24,23 @@ namespace
     {
         throw std::logic_error("'" + std::string(prop) + "'" + " received invalid value type (" + type + ")");
     }
-}
 
-namespace MWLua
-{
-    static void addStatUpdateAction(MWLua::LuaManager* manager, const SelfObject& obj)
+    void addItemDataStatUpdateAction(MWLua::LuaManager* manager, const SelfObject& obj)
     {
         if (!obj.mStatsCache.empty())
             return; // was already added before
         manager->addAction(
-            [obj = Object(obj)] {
-                LocalScripts* scripts = obj.ptr().getRefData().getLuaScripts();
+            [obj = MWLua::Object(obj)] {
+                MWLua::LocalScripts* scripts = obj.ptr().getRefData().getLuaScripts();
                 if (scripts)
                     scripts->applyStatsCache();
             },
             "StatUpdateAction");
     }
+}
 
+namespace MWLua
+{
     class ItemData
     {
         ObjectVariant mObject;
@@ -70,7 +70,7 @@ namespace MWLua
             else if (mObject.isSelfObject())
             {
                 SelfObject* obj = mObject.asSelfObject();
-                addStatUpdateAction(context.mLuaManager, *obj);
+                addItemDataStatUpdateAction(context.mLuaManager, *obj);
                 obj->mStatsCache[SelfObject::CachedStat{ &ItemData::setValue, std::monostate{}, prop }]
                     = sol::main_object(value);
             }
