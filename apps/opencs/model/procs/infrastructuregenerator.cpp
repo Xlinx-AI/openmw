@@ -10,6 +10,8 @@
 
 #include <components/esm3/loadland.hpp>
 
+#include "proceduralgenerator.hpp"
+
 namespace CSMProcs
 {
     InfrastructureGenerator::InfrastructureGenerator(CSMDoc::Document& document, RandomGenerator& rng)
@@ -236,7 +238,7 @@ namespace CSMProcs
     }
 
     std::vector<std::pair<float, float>> InfrastructureGenerator::findPath(float startX, float startY, float endX,
-        float endY) const
+        float endY)
     {
         std::vector<std::pair<float, float>> path;
         path.push_back({startX, startY});
@@ -932,7 +934,7 @@ namespace CSMProcs
     }
 
     bool InfrastructureGenerator::findValidLocation(InfrastructureType type, float& outX, float& outY,
-        float& outZ) const
+        float& outZ)
     {
         PlacementContext ctx = getContextForType(type);
         float cellSize = ESM::Land::REAL_SIZE;

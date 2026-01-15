@@ -10,6 +10,12 @@
 #include "noise.hpp"
 #include "proceduralstate.hpp"
 
+// Forward declaration for SettlementLocation
+namespace CSMProcs
+{
+    struct SettlementLocation;
+}
+
 namespace CSMWorld
 {
     class Data;
@@ -291,7 +297,7 @@ namespace CSMProcs
         PlacementContext getContextForType(InfrastructureType type) const;
         
         /// Find valid location for infrastructure
-        bool findValidLocation(InfrastructureType type, float& outX, float& outY, float& outZ) const;
+        bool findValidLocation(InfrastructureType type, float& outX, float& outY, float& outZ);
         
         /// Check if location is valid for placement
         bool isValidLocation(float x, float y, const PlacementContext& context) const;
@@ -313,7 +319,7 @@ namespace CSMProcs
         
         /// Find path between two points following terrain
         std::vector<std::pair<float, float>> findPath(float startX, float startY, 
-                                                       float endX, float endY) const;
+                                                       float endX, float endY);
         
         /// Smooth a path to avoid sharp turns
         void smoothPath(std::vector<std::pair<float, float>>& path) const;

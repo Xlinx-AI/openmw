@@ -1,6 +1,7 @@
 #include "settlementgenerator.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <queue>
 
@@ -8,6 +9,8 @@
 #include <apps/opencs/model/world/data.hpp>
 
 #include <components/esm3/loadland.hpp>
+
+#include "proceduralgenerator.hpp"
 
 namespace CSMProcs
 {
@@ -925,7 +928,7 @@ namespace CSMProcs
     }
 
     std::string SettlementGenerator::selectBuildingForRole(BuildingRole role, DistrictType district,
-        float wealthLevel) const
+        float wealthLevel)
     {
         // Try to get from asset library first
         if (mAssetLibrary)

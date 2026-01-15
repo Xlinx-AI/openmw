@@ -11,6 +11,12 @@
 #include "noise.hpp"
 #include "proceduralstate.hpp"
 
+// Forward declaration for SettlementLocation
+namespace CSMProcs
+{
+    struct SettlementLocation;
+}
+
 namespace CSMWorld
 {
     class Data;
@@ -231,14 +237,26 @@ namespace CSMProcs
         /// Generate road network
         void generateRoadNetwork(const SettlementLocation& location);
         
+        /// Generate grid-based road network
+        void generateGridRoads(const SettlementLocation& location);
+        
+        /// Generate organic/radial road network
+        void generateOrganicRoads(const SettlementLocation& location);
+        
         /// Create building lots along roads
         void createBuildingLots(const SettlementLocation& location);
+        
+        /// Create lots along a single street
+        void createLotsAlongStreet(const RoadSegment& road, DistrictType district);
         
         /// Assign building roles to lots
         void assignBuildingRoles(SettlementType type);
         
         /// Place actual buildings
         void placeBuildings(SettlementLocation& location);
+        
+        /// Place a single building on a lot
+        void placeBuildingOnLot(BuildingLot& lot, BuildingRole role, SettlementLocation& location);
         
         /// Add street furniture and details
         void addStreetDetails(const SettlementLocation& location);
@@ -256,13 +274,16 @@ namespace CSMProcs
         std::map<BuildingRole, int> getRequiredBuildings(SettlementType type, int totalBuildings) const;
         
         /// Select appropriate building object for role
-        std::string selectBuildingForRole(BuildingRole role, DistrictType district) const;
+        std::string selectBuildingForRole(BuildingRole role, DistrictType district, float wealthLevel);
         
         /// Get district at position
         DistrictType getDistrictAt(float x, float y, const SettlementLocation& location) const;
         
         /// Calculate importance factor at position (0-1)
         float getImportanceAt(float x, float y, const SettlementLocation& location) const;
+        
+        /// Calculate wealth level at position based on district
+        float getWealthAt(float x, float y, const SettlementLocation& location) const;
         
         /// Check if position is on a road
         bool isOnRoad(float x, float y) const;
@@ -276,8 +297,14 @@ namespace CSMProcs
         /// Convert district type to string
         static std::string getDistrictName(DistrictType type);
         
+        /// Convert building role to string
+        static std::string getBuildingRoleName(BuildingRole role);
+        
         /// Get default building size for role
         static std::pair<float, float> getBuildingSizeForRole(BuildingRole role);
+        
+        /// Check if building role requires an interior
+        static bool roleNeedsInterior(BuildingRole role);
         
         /// Report progress
         void reportProgress(int current, int total, const std::string& message);
