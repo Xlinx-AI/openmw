@@ -32,7 +32,7 @@ namespace MWRender
             return stateSet;
         }
 
-        osg::ref_ptr<osg::StateSet> makeDebugDrawStateSet()
+        osg::ref_ptr<osg::StateSet> makeActorsPathsDebugDrawStateSet()
         {
             osg::ref_ptr<osg::StateSet> stateSet = new osg::StateSet;
             stateSet->setAttributeAndModes(new osg::LineWidth());
@@ -45,7 +45,7 @@ namespace MWRender
         : mRootNode(root)
         , mEnabled(enabled)
         , mGroupStateSet(makeGroupStateSet())
-        , mDebugDrawStateSet(makeDebugDrawStateSet())
+        , mDebugDrawStateSet(makeActorsPathsDebugDrawStateSet())
     {
     }
 
