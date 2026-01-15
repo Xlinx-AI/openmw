@@ -49,6 +49,18 @@ opencs_hdrs (model/tools
     mergestate
     )
 
+opencs_units (model/procs
+    noise worldanalyzer proceduralgenerator
+    )
+
+opencs_hdrs (model/procs
+    proceduralstate
+    )
+
+opencs_units (view/procs
+    proceduralgeneratordialog
+    )
+
 
 opencs_units (view/doc
     viewmanager view operations operation subview startup filedialog newgame

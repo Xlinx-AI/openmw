@@ -28,6 +28,8 @@
 
 #include "../tools/subviews.hpp"
 
+#include "../procs/proceduralgeneratordialog.hpp"
+
 #include <apps/opencs/model/prefs/category.hpp>
 #include <apps/opencs/model/prefs/setting.hpp>
 #include <apps/opencs/model/prefs/shortcutmanager.hpp>
@@ -209,6 +211,11 @@ void CSVDoc::View::setupWorldMenu()
 
     QAction* regionMap = createMenuEntry(CSMWorld::UniversalId::Type_RegionMap, world, "document-world-regionmap");
     connect(regionMap, &QAction::triggered, this, &View::addRegionMapSubView);
+
+    world->addSeparator();
+
+    QAction* proceduralGenerator = createMenuEntry("Procedural Generator...", ":menu-new-addon", world, "document-world-procedural");
+    connect(proceduralGenerator, &QAction::triggered, this, &View::openProceduralGenerator);
 }
 
 void CSVDoc::View::setupMechanicsMenu()
@@ -1155,6 +1162,13 @@ void CSVDoc::View::onRequestFocus(const std::string& id)
     {
         addSubView(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Reference, id));
     }
+}
+
+void CSVDoc::View::openProceduralGenerator()
+{
+    CSVProcs::ProceduralGeneratorDialog* dialog = new CSVProcs::ProceduralGeneratorDialog(*mDocument, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 QScreen* CSVDoc::View::getWidgetScreen(const QPoint& position)
