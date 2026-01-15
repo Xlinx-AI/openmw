@@ -1,3 +1,6 @@
+#ifndef OPENMW_MWRENDER_DISTORTION_H
+#define OPENMW_MWRENDER_DISTORTION_H
+
 #include <array>
 
 #include <osgUtil/RenderBin>
@@ -26,3 +29,5 @@ namespace MWRender
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mOriginalFBO;
     };
 }
+
+#endif
