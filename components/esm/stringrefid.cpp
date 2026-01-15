@@ -19,7 +19,7 @@ namespace ESM
     {
         using StringsSet = std::unordered_set<std::string, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual>;
 
-        const std::string emptyString;
+        const std::string stringRefIdEmptyString;
 
         Misc::ScopeGuarded<StringsSet>& getRefIds()
         {
@@ -50,7 +50,7 @@ namespace ESM
     }
 
     StringRefId::StringRefId()
-        : mValue(&emptyString)
+        : mValue(&stringRefIdEmptyString)
     {
     }
 
