@@ -18,8 +18,6 @@ env:
   # Enable Unity Build for significantly faster compilation
   # This combines multiple source files into single translation units
   UNITY_BUILD: ON
-  # Number of parallel jobs (2x CPU cores is optimal for most CI runners)
-  PARALLEL_JOBS: 4
 
 jobs:
   Output-Envs:
