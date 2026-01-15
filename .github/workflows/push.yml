@@ -15,6 +15,9 @@ concurrency:
 
 env:
   BUILD_TYPE: RelWithDebInfo
+  # Enable Unity Build for significantly faster compilation
+  # This combines multiple source files into single translation units
+  UNITY_BUILD: ON
 
 jobs:
   Output-Envs:
@@ -45,13 +48,17 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-${{ env.BUILD_TYPE }}
-          max-size: 1000M
+          key: ${{ runner.os }}-${{ env.BUILD_TYPE }}-unity
+          max-size: 2000M
+          verbose: 2
 
       - name: Configure
         run: >
           cmake -S . -B build -G Ninja
           -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -D CMAKE_C_COMPILER_LAUNCHER=ccache
+          -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -D OPENMW_UNITY_BUILD=${{ env.UNITY_BUILD }}
           -D OPENMW_USE_SYSTEM_RECASTNAVIGATION=ON
           -D USE_SYSTEM_TINYXML=ON
           -D BUILD_COMPONENTS_TESTS=ON
@@ -87,8 +94,9 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-${{ env.BUILD_TYPE }}
-          max-size: 1000M
+          key: ${{ runner.os }}-${{ env.BUILD_TYPE }}-unity
+          max-size: 2000M
+          verbose: 2
 
       - name: Configure
         run: CI/before_script.macos.sh -C
