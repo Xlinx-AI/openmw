@@ -111,7 +111,7 @@ jobs:
         -D OPENMW_USE_SYSTEM_SQLITE3=OFF
         -D OPENMW_USE_SYSTEM_YAML_CPP=OFF
         -D OPENMW_LTO_BUILD=ON
-        -D OPENMW_UNITY_BUILD=ON
+        -D OPENMW_UNITY_BUILD=OFF
         -D OPENMW_MP_BUILD=ON
         ${{ inputs.package && '-D "VCREDIST64=$env:VCToolsRedistDir/vc_redist.x64.exe"' || '' }}
 
