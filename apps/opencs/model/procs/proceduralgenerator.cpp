@@ -30,6 +30,8 @@
 #include <components/esm3/loadland.hpp>
 #include <components/esm3/loadpgrd.hpp>
 
+#include "assetlibrary.hpp"
+
 namespace CSMProcs
 {
     ProceduralGenerator::ProceduralGenerator(CSMDoc::Document& document)
@@ -225,10 +227,15 @@ namespace CSMProcs
     {
         mRunning = true;
         mCancelled = false;
+        mGeneratedSettlements.clear();
         
         int totalSteps = 0;
         if (mState.generateExteriors)
             totalSteps += getTotalCells() * 2; // Terrain + Objects
+        if (mState.generateSettlements)
+            totalSteps += mState.settlement.settlementCount * 10; // Estimate
+        if (mState.generateCavesAndDungeons)
+            totalSteps += mState.caveDungeon.caveCount + mState.caveDungeon.dungeonCount;
         if (mState.generateInteriors)
             totalSteps += std::max(1, mState.worldSizeX / 4);
         if (mState.generatePathgrids)
@@ -253,9 +260,35 @@ namespace CSMProcs
                 }
             }
             
+            if (mState.generateSettlements && !mCancelled)
+            {
+                int offset = mState.generateExteriors ? getTotalCells() * 2 : 0;
+                reportProgress(offset, totalSteps, "Generating settlements...");
+                if (!generateSettlements())
+                {
+                    mRunning = false;
+                    return false;
+                }
+            }
+            
+            if (mState.generateCavesAndDungeons && !mCancelled)
+            {
+                int offset = (mState.generateExteriors ? getTotalCells() * 2 : 0) + 
+                             (mState.generateSettlements ? mState.settlement.settlementCount * 10 : 0);
+                reportProgress(offset, totalSteps, "Generating caves and dungeons...");
+                if (!generateCavesAndDungeons())
+                {
+                    mRunning = false;
+                    return false;
+                }
+            }
+            
             if (mState.generateInteriors && !mCancelled)
             {
-                reportProgress(getTotalCells() * 2, totalSteps, "Generating interiors...");
+                int offset = (mState.generateExteriors ? getTotalCells() * 2 : 0) + 
+                             (mState.generateSettlements ? mState.settlement.settlementCount * 10 : 0) +
+                             (mState.generateCavesAndDungeons ? mState.caveDungeon.caveCount + mState.caveDungeon.dungeonCount : 0);
+                reportProgress(offset, totalSteps, "Generating interiors...");
                 if (!generateInteriors())
                 {
                     mRunning = false;
@@ -265,7 +298,10 @@ namespace CSMProcs
             
             if (mState.generatePathgrids && !mCancelled)
             {
-                int offset = getTotalCells() * 2 + (mState.generateInteriors ? std::max(1, mState.worldSizeX / 4) : 0);
+                int offset = (mState.generateExteriors ? getTotalCells() * 2 : 0) + 
+                             (mState.generateSettlements ? mState.settlement.settlementCount * 10 : 0) +
+                             (mState.generateCavesAndDungeons ? mState.caveDungeon.caveCount + mState.caveDungeon.dungeonCount : 0) +
+                             (mState.generateInteriors ? std::max(1, mState.worldSizeX / 4) : 0);
                 reportProgress(offset, totalSteps, "Generating pathgrids...");
                 if (!generatePathgrids())
                 {
@@ -565,9 +601,13 @@ namespace CSMProcs
             std::string name;
             float density;
             std::vector<std::string> objects;
+            AssetCategory assetCategory;
         };
         
         std::vector<ObjectCategory> categories;
+        
+        // Use asset library if available and enabled
+        bool useLibrary = op.useAssetLibrary && mState.assetLibrary && mState.assetLibrary->hasAssets();
         
         // Trees
         if (op.treeDensity > 0.01f)
@@ -575,7 +615,17 @@ namespace CSMProcs
             ObjectCategory trees;
             trees.name = "tree";
             trees.density = op.treeDensity;
-            trees.objects = getObjectsFromReference("tree");
+            trees.assetCategory = AssetCategory::Tree;
+            
+            if (useLibrary)
+            {
+                trees.objects = getObjectsFromAssetLibrary(AssetCategory::Tree);
+            }
+            else
+            {
+                trees.objects = getObjectsFromReference("tree");
+            }
+            
             if (trees.objects.empty())
             {
                 // Default Morrowind-style trees
@@ -594,7 +644,17 @@ namespace CSMProcs
             ObjectCategory rocks;
             rocks.name = "rock";
             rocks.density = op.rockDensity;
-            rocks.objects = getObjectsFromReference("rock");
+            rocks.assetCategory = AssetCategory::Rock;
+            
+            if (useLibrary)
+            {
+                rocks.objects = getObjectsFromAssetLibrary(AssetCategory::Rock);
+            }
+            else
+            {
+                rocks.objects = getObjectsFromReference("rock");
+            }
+            
             if (rocks.objects.empty())
             {
                 rocks.objects = {
@@ -612,7 +672,17 @@ namespace CSMProcs
             ObjectCategory grass;
             grass.name = "grass";
             grass.density = op.grassDensity;
-            grass.objects = getObjectsFromReference("grass");
+            grass.assetCategory = AssetCategory::Grass;
+            
+            if (useLibrary)
+            {
+                grass.objects = getObjectsFromAssetLibrary(AssetCategory::Grass);
+            }
+            else
+            {
+                grass.objects = getObjectsFromReference("grass");
+            }
+            
             if (grass.objects.empty())
             {
                 grass.objects = {
@@ -622,6 +692,25 @@ namespace CSMProcs
                 };
             }
             categories.push_back(grass);
+        }
+        
+        // Bushes
+        if (op.bushDensity > 0.01f)
+        {
+            ObjectCategory bushes;
+            bushes.name = "bush";
+            bushes.density = op.bushDensity;
+            bushes.assetCategory = AssetCategory::Bush;
+            
+            if (useLibrary)
+            {
+                bushes.objects = getObjectsFromAssetLibrary(AssetCategory::Bush);
+            }
+            
+            if (!bushes.objects.empty())
+            {
+                categories.push_back(bushes);
+            }
         }
         
         // Place objects for each category
@@ -1141,5 +1230,789 @@ namespace CSMProcs
         
         reportProgress(3, 3, "Preview complete!");
         return true;
+    }
+    
+    std::vector<std::string> ProceduralGenerator::getObjectsFromAssetLibrary(AssetCategory category) const
+    {
+        if (!mState.assetLibrary)
+            return {};
+        
+        return mState.assetLibrary->getAssetIds(category);
+    }
+    
+    std::string ProceduralGenerator::selectAssetFromLibrary(AssetCategory category) const
+    {
+        auto objects = getObjectsFromAssetLibrary(category);
+        if (objects.empty())
+            return "";
+        
+        return objects[mRng->nextInt(static_cast<uint32_t>(objects.size()))];
+    }
+    
+    std::string ProceduralGenerator::createReferenceWithId(const std::string& objectId, const std::string& cellId,
+                                                           float x, float y, float z, float rotation, float scale)
+    {
+        CSMWorld::IdTable& refTable = dynamic_cast<CSMWorld::IdTable&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_References)));
+        
+        // Generate unique reference ID
+        std::string refId = mData.getReferences().getNewId();
+        
+        // Create the reference
+        auto createCmd = std::make_unique<CSMWorld::CreateCommand>(refTable, refId);
+        
+        // Set object ID
+        int refIdColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_ReferenceableId);
+        if (refIdColumn >= 0)
+        {
+            createCmd->addValue(refIdColumn, QString::fromStdString(objectId));
+        }
+        
+        // Set cell
+        int cellColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+        if (cellColumn >= 0)
+        {
+            createCmd->addValue(cellColumn, QString::fromStdString(cellId));
+        }
+        
+        // Set position
+        int posXColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionXPos);
+        int posYColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionYPos);
+        int posZColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionZPos);
+        
+        if (posXColumn >= 0)
+            createCmd->addValue(posXColumn, static_cast<double>(x));
+        if (posYColumn >= 0)
+            createCmd->addValue(posYColumn, static_cast<double>(y));
+        if (posZColumn >= 0)
+            createCmd->addValue(posZColumn, static_cast<double>(z));
+        
+        // Set rotation (Z axis)
+        int rotZColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_PositionZRot);
+        if (rotZColumn >= 0)
+        {
+            createCmd->addValue(rotZColumn, static_cast<double>(rotation));
+        }
+        
+        // Set scale
+        int scaleColumn = refTable.findColumnIndex(CSMWorld::Columns::ColumnId_Scale);
+        if (scaleColumn >= 0)
+        {
+            createCmd->addValue(scaleColumn, static_cast<double>(scale));
+        }
+        
+        mDocument.getUndoStack().push(createCmd.release());
+        
+        return refId;
+    }
+    
+    // Settlement generation
+    
+    bool ProceduralGenerator::generateSettlements()
+    {
+        if (mState.settlement.type == SettlementType::None)
+            return true;
+        
+        // Find suitable locations
+        auto locations = findSettlementLocations();
+        
+        int totalSettlements = static_cast<int>(locations.size());
+        int currentSettlement = 0;
+        
+        for (auto& location : locations)
+        {
+            if (mCancelled)
+                return false;
+            
+            reportProgress(currentSettlement, totalSettlements, 
+                "Generating settlement: " + location.name);
+            
+            generateSettlement(location);
+            mGeneratedSettlements.push_back(location);
+            
+            ++currentSettlement;
+        }
+        
+        return !mCancelled;
+    }
+    
+    std::vector<SettlementLocation> ProceduralGenerator::findSettlementLocations()
+    {
+        std::vector<SettlementLocation> locations;
+        
+        const SettlementParams& sp = mState.settlement;
+        
+        if (!sp.autoPlaceSettlements)
+        {
+            // Use manually specified locations
+            for (const auto& [cellX, cellY] : sp.manualLocations)
+            {
+                SettlementLocation loc;
+                loc.cellX = cellX;
+                loc.cellY = cellY;
+                loc.centerX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE + ESM::Land::REAL_SIZE / 2.0f;
+                loc.centerY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE + ESM::Land::REAL_SIZE / 2.0f;
+                loc.centerZ = generateHeight(loc.centerX, loc.centerY);
+                loc.radius = calculateSettlementRadius(sp.type);
+                loc.type = sp.type;
+                loc.name = "Settlement_" + std::to_string(mState.seed) + "_" + std::to_string(locations.size());
+                locations.push_back(loc);
+            }
+        }
+        else
+        {
+            // Auto-find suitable locations
+            int settlementsToPlace = sp.settlementCount;
+            int attempts = 0;
+            int maxAttempts = settlementsToPlace * 100;
+            
+            while (static_cast<int>(locations.size()) < settlementsToPlace && attempts < maxAttempts)
+            {
+                ++attempts;
+                
+                // Random cell within world bounds
+                int cellX = mState.originX + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeX));
+                int cellY = mState.originY + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeY));
+                
+                // Random position within cell
+                float offsetX = mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                float offsetY = mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                
+                float worldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE + offsetX;
+                float worldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE + offsetY;
+                
+                float radius = calculateSettlementRadius(sp.type);
+                
+                if (isLocationSuitableForSettlement(worldX, worldY, radius))
+                {
+                    // Check distance from other settlements
+                    bool tooClose = false;
+                    for (const auto& existing : locations)
+                    {
+                        float dx = worldX - existing.centerX;
+                        float dy = worldY - existing.centerY;
+                        float dist = std::sqrt(dx * dx + dy * dy);
+                        if (dist < radius + existing.radius + 500.0f) // Minimum spacing
+                        {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!tooClose)
+                    {
+                        SettlementLocation loc;
+                        loc.cellX = cellX;
+                        loc.cellY = cellY;
+                        loc.centerX = worldX;
+                        loc.centerY = worldY;
+                        loc.centerZ = generateHeight(worldX, worldY);
+                        loc.radius = radius;
+                        loc.type = sp.type;
+                        loc.name = "Settlement_" + std::to_string(mState.seed) + "_" + std::to_string(locations.size());
+                        locations.push_back(loc);
+                    }
+                }
+            }
+        }
+        
+        return locations;
+    }
+    
+    bool ProceduralGenerator::isLocationSuitableForSettlement(float worldX, float worldY, float radius) const
+    {
+        // Check terrain at center and edges
+        float centerHeight = generateHeight(worldX, worldY);
+        
+        // Not underwater
+        if (mState.terrain.generateWater && centerHeight < mState.terrain.waterLevel + 50.0f)
+            return false;
+        
+        // Not too high
+        if (centerHeight > mState.terrain.baseHeight + mState.terrain.heightVariation * 0.7f)
+            return false;
+        
+        // Check slope at center
+        float slope = getSlopeAt(worldX, worldY);
+        if (slope > 0.3f)
+            return false;
+        
+        // Check terrain variation within radius
+        float minHeight = centerHeight;
+        float maxHeight = centerHeight;
+        
+        const int checkPoints = 8;
+        for (int i = 0; i < checkPoints; ++i)
+        {
+            float angle = static_cast<float>(i) * 6.28318f / static_cast<float>(checkPoints);
+            float checkX = worldX + std::cos(angle) * radius * 0.8f;
+            float checkY = worldY + std::sin(angle) * radius * 0.8f;
+            
+            float height = generateHeight(checkX, checkY);
+            minHeight = std::min(minHeight, height);
+            maxHeight = std::max(maxHeight, height);
+            
+            // Check for underwater
+            if (mState.terrain.generateWater && height < mState.terrain.waterLevel)
+                return false;
+        }
+        
+        // Height variation should be reasonable
+        if (maxHeight - minHeight > 200.0f)
+            return false;
+        
+        return true;
+    }
+    
+    float ProceduralGenerator::calculateSettlementRadius(SettlementType type) const
+    {
+        switch (type)
+        {
+            case SettlementType::Farm: return 300.0f;
+            case SettlementType::Hamlet: return 500.0f;
+            case SettlementType::Village: return 800.0f;
+            case SettlementType::Town: return 1500.0f;
+            case SettlementType::City: return 3000.0f;
+            case SettlementType::Metropolis: return 6000.0f;
+            case SettlementType::Fortress: return 1000.0f;
+            case SettlementType::Castle: return 800.0f;
+            default: return 500.0f;
+        }
+    }
+    
+    void ProceduralGenerator::generateSettlement(SettlementLocation& location)
+    {
+        // Place buildings
+        placeSettlementBuildings(location);
+        
+        // Generate roads if enabled
+        if (mState.settlement.generateRoads)
+        {
+            generateSettlementRoads(location);
+        }
+        
+        // Generate walls if applicable
+        bool shouldHaveWalls = mState.settlement.userOverrideWalls 
+            ? mState.settlement.generateWalls 
+            : settlementDefaultWalls(location.type);
+            
+        if (shouldHaveWalls)
+        {
+            generateSettlementWalls(location);
+        }
+        
+        // Generate interiors for buildings
+        if (mState.settlement.generateBuildingInteriors)
+        {
+            generateSettlementInteriors(location);
+        }
+    }
+    
+    void ProceduralGenerator::placeSettlementBuildings(SettlementLocation& location)
+    {
+        auto [minBuildings, maxBuildings] = getSettlementBuildingRange(location.type);
+        int buildingCount = mRng->nextIntRange(minBuildings, maxBuildings);
+        
+        // Get building objects from asset library or use defaults
+        std::vector<std::string> buildings;
+        if (mState.assetLibrary && mState.objects.useAssetLibrary)
+        {
+            buildings = getObjectsFromAssetLibrary(AssetCategory::Building);
+        }
+        
+        if (buildings.empty())
+        {
+            // Default Morrowind-style buildings
+            buildings = {
+                "ex_common_house_01", "ex_common_house_02", "ex_common_house_03",
+                "ex_hlaalu_house_01", "ex_hlaalu_house_02",
+                "ex_redoran_house_01", "ex_redoran_house_02"
+            };
+        }
+        
+        // Cell ID for exterior references
+        std::string cellId = "#" + std::to_string(location.cellX) + ", " + std::to_string(location.cellY);
+        
+        // Place buildings in a pattern based on settlement type
+        float spacing = mState.settlement.buildingSpacing;
+        
+        // Simple grid-based placement with some randomization
+        int gridSize = static_cast<int>(std::ceil(std::sqrt(static_cast<float>(buildingCount))));
+        float gridSpacing = location.radius * 2.0f / static_cast<float>(gridSize + 1);
+        
+        int placed = 0;
+        for (int gy = 0; gy < gridSize && placed < buildingCount; ++gy)
+        {
+            for (int gx = 0; gx < gridSize && placed < buildingCount; ++gx)
+            {
+                // Calculate position
+                float baseX = location.centerX - location.radius + (static_cast<float>(gx) + 1.0f) * gridSpacing;
+                float baseY = location.centerY - location.radius + (static_cast<float>(gy) + 1.0f) * gridSpacing;
+                
+                // Add some randomization
+                float offsetX = mRng->nextFloatRange(-spacing * 0.3f, spacing * 0.3f);
+                float offsetY = mRng->nextFloatRange(-spacing * 0.3f, spacing * 0.3f);
+                
+                float worldX = baseX + offsetX;
+                float worldY = baseY + offsetY;
+                float worldZ = generateHeight(worldX, worldY);
+                
+                // Check if location is suitable
+                float slope = getSlopeAt(worldX, worldY);
+                if (slope > 0.25f)
+                    continue;
+                
+                if (mState.terrain.generateWater && worldZ < mState.terrain.waterLevel)
+                    continue;
+                
+                // Select building
+                std::string buildingId = buildings[mRng->nextInt(static_cast<uint32_t>(buildings.size()))];
+                
+                // Random rotation (aligned to cardinal directions with some variation)
+                float rotation = static_cast<float>(mRng->nextInt(4)) * 1.5708f; // 90 degree increments
+                rotation += mRng->nextFloatRange(-0.1f, 0.1f); // Small variation
+                
+                // Create building reference
+                std::string refId = createReferenceWithId(buildingId, cellId, worldX, worldY, worldZ, rotation, 1.0f);
+                location.buildingIds.push_back(refId);
+                
+                ++placed;
+            }
+        }
+    }
+    
+    void ProceduralGenerator::generateSettlementRoads(const SettlementLocation& location)
+    {
+        // Get road/cobblestone objects from asset library
+        std::vector<std::string> roadObjects;
+        if (mState.assetLibrary && mState.assetLibrary->getRoadConfig().use3DRoads)
+        {
+            roadObjects = getObjectsFromAssetLibrary(AssetCategory::CobblestoneRoad);
+        }
+        
+        if (roadObjects.empty())
+        {
+            // No 3D road objects available, skip road generation
+            // In a full implementation, we would modify terrain textures instead
+            return;
+        }
+        
+        std::string cellId = "#" + std::to_string(location.cellX) + ", " + std::to_string(location.cellY);
+        
+        // Create a simple cross-road pattern through the settlement center
+        float roadLength = location.radius * 1.5f;
+        float roadSpacing = 100.0f;
+        
+        // Main roads (N-S and E-W)
+        for (int direction = 0; direction < 2; ++direction)
+        {
+            float angle = static_cast<float>(direction) * 1.5708f; // 0 or 90 degrees
+            float cosAngle = std::cos(angle);
+            float sinAngle = std::sin(angle);
+            
+            for (float dist = -roadLength; dist <= roadLength; dist += roadSpacing)
+            {
+                float worldX = location.centerX + cosAngle * dist;
+                float worldY = location.centerY + sinAngle * dist;
+                float worldZ = generateHeight(worldX, worldY);
+                
+                // Select road object
+                std::string roadId = roadObjects[mRng->nextInt(static_cast<uint32_t>(roadObjects.size()))];
+                
+                createReference(roadId, cellId, worldX, worldY, worldZ, angle, 1.0f);
+            }
+        }
+    }
+    
+    void ProceduralGenerator::generateSettlementWalls(const SettlementLocation& location)
+    {
+        // Get wall objects from asset library
+        std::vector<std::string> wallSegments;
+        std::vector<std::string> wallGates;
+        std::vector<std::string> wallTowers;
+        
+        if (mState.assetLibrary)
+        {
+            wallSegments = getObjectsFromAssetLibrary(AssetCategory::Wall);
+            wallGates = getObjectsFromAssetLibrary(AssetCategory::WallGate);
+            wallTowers = getObjectsFromAssetLibrary(AssetCategory::WallTower);
+        }
+        
+        // If no wall objects available, skip wall generation
+        if (wallSegments.empty())
+            return;
+        
+        std::string cellId = "#" + std::to_string(location.cellX) + ", " + std::to_string(location.cellY);
+        
+        // Calculate wall parameters
+        float wallRadius = mState.settlement.wallRadius > 0.0f 
+            ? mState.settlement.wallRadius 
+            : location.radius * 0.9f;
+        
+        int gateCount = mState.settlement.wallGateCount;
+        float towerSpacing = 300.0f;
+        
+        // Place walls in a circle around the settlement
+        float circumference = 2.0f * 3.14159f * wallRadius;
+        int segmentCount = static_cast<int>(circumference / 100.0f); // One segment per 100 units
+        
+        float gateInterval = static_cast<float>(segmentCount) / static_cast<float>(gateCount);
+        
+        for (int i = 0; i < segmentCount; ++i)
+        {
+            float angle = static_cast<float>(i) * 2.0f * 3.14159f / static_cast<float>(segmentCount);
+            float worldX = location.centerX + std::cos(angle) * wallRadius;
+            float worldY = location.centerY + std::sin(angle) * wallRadius;
+            float worldZ = generateHeight(worldX, worldY);
+            
+            // Wall rotation should face outward
+            float rotation = angle + 1.5708f; // Perpendicular to radius
+            
+            // Determine what to place
+            bool isGatePosition = false;
+            for (int g = 0; g < gateCount; ++g)
+            {
+                if (std::abs(static_cast<float>(i) - static_cast<float>(g) * gateInterval) < 1.0f)
+                {
+                    isGatePosition = true;
+                    break;
+                }
+            }
+            
+            bool isTowerPosition = (i % static_cast<int>(towerSpacing / (circumference / static_cast<float>(segmentCount)))) == 0;
+            
+            std::string objectId;
+            if (isGatePosition && !wallGates.empty())
+            {
+                objectId = wallGates[mRng->nextInt(static_cast<uint32_t>(wallGates.size()))];
+            }
+            else if (isTowerPosition && !wallTowers.empty())
+            {
+                objectId = wallTowers[mRng->nextInt(static_cast<uint32_t>(wallTowers.size()))];
+            }
+            else
+            {
+                objectId = wallSegments[mRng->nextInt(static_cast<uint32_t>(wallSegments.size()))];
+            }
+            
+            createReference(objectId, cellId, worldX, worldY, worldZ, rotation, 1.0f);
+        }
+    }
+    
+    void ProceduralGenerator::generateSettlementInteriors(SettlementLocation& location)
+    {
+        // Generate interior cells for buildings
+        for (size_t i = 0; i < location.buildingIds.size(); ++i)
+        {
+            std::string interiorName = location.name + "_Interior_" + std::to_string(i);
+            
+            // Determine room count based on building "type" (simple random for now)
+            int roomCount = mRng->nextIntRange(1, 6);
+            
+            createBuildingInterior(location.buildingIds[i], "building");
+            location.interiorIds.push_back(interiorName);
+        }
+    }
+    
+    void ProceduralGenerator::createBuildingInterior(const std::string& buildingRefId, const std::string& buildingType)
+    {
+        // Generate an interior cell linked to the building
+        std::string interiorName = "Interior_" + buildingRefId;
+        
+        int roomCount = mRng->nextIntRange(
+            mState.interiors.minRooms, 
+            mState.interiors.maxRooms
+        );
+        
+        createInterior(interiorName, roomCount);
+    }
+    
+    // Cave and dungeon generation
+    
+    bool ProceduralGenerator::generateCavesAndDungeons()
+    {
+        const CaveDungeonParams& cdp = mState.caveDungeon;
+        
+        int totalToGenerate = 0;
+        if (cdp.generateCaves)
+            totalToGenerate += cdp.caveCount;
+        if (cdp.generateDungeons)
+            totalToGenerate += cdp.dungeonCount;
+        
+        int currentGenerated = 0;
+        
+        // Generate caves
+        if (cdp.generateCaves)
+        {
+            for (int i = 0; i < cdp.caveCount && !mCancelled; ++i)
+            {
+                // Find a suitable location
+                int attempts = 0;
+                while (attempts < 100)
+                {
+                    ++attempts;
+                    
+                    int cellX = mState.originX + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeX));
+                    int cellY = mState.originY + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeY));
+                    
+                    float worldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE + 
+                                   mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                    float worldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE + 
+                                   mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                    
+                    float height = generateHeight(worldX, worldY);
+                    float slope = getSlopeAt(worldX, worldY);
+                    
+                    // Caves prefer hillsides
+                    if (slope > 0.3f && slope < 0.8f && height > mState.terrain.waterLevel)
+                    {
+                        generateCave(cellX, cellY, worldX, worldY);
+                        break;
+                    }
+                }
+                
+                ++currentGenerated;
+                reportProgress(currentGenerated, totalToGenerate, "Generating cave " + std::to_string(i + 1));
+            }
+        }
+        
+        // Generate dungeons
+        if (cdp.generateDungeons)
+        {
+            for (int i = 0; i < cdp.dungeonCount && !mCancelled; ++i)
+            {
+                // Find a suitable location
+                int attempts = 0;
+                while (attempts < 100)
+                {
+                    ++attempts;
+                    
+                    int cellX = mState.originX + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeX));
+                    int cellY = mState.originY + mRng->nextInt(static_cast<uint32_t>(mState.worldSizeY));
+                    
+                    float worldX = static_cast<float>(cellX) * ESM::Land::REAL_SIZE + 
+                                   mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                    float worldY = static_cast<float>(cellY) * ESM::Land::REAL_SIZE + 
+                                   mRng->nextFloatRange(0.2f, 0.8f) * ESM::Land::REAL_SIZE;
+                    
+                    float height = generateHeight(worldX, worldY);
+                    float slope = getSlopeAt(worldX, worldY);
+                    
+                    // Dungeons can be anywhere above water with reasonable slope
+                    if (slope < 0.5f && height > mState.terrain.waterLevel)
+                    {
+                        generateDungeon(cellX, cellY, worldX, worldY);
+                        break;
+                    }
+                }
+                
+                ++currentGenerated;
+                reportProgress(currentGenerated, totalToGenerate, "Generating dungeon " + std::to_string(i + 1));
+            }
+        }
+        
+        return !mCancelled;
+    }
+    
+    void ProceduralGenerator::generateCave(int cellX, int cellY, float worldX, float worldY)
+    {
+        const CaveDungeonParams& cdp = mState.caveDungeon;
+        
+        // Get cave entrance from asset library
+        std::vector<std::string> entrances;
+        if (mState.assetLibrary)
+        {
+            entrances = getObjectsFromAssetLibrary(AssetCategory::CaveEntrance);
+        }
+        
+        if (entrances.empty())
+        {
+            entrances = {"ex_cave_entrance_01", "ex_cave_entrance_02"};
+        }
+        
+        std::string cellId = "#" + std::to_string(cellX) + ", " + std::to_string(cellY);
+        float worldZ = generateHeight(worldX, worldY);
+        
+        // Place entrance
+        std::string entranceId = entrances[mRng->nextInt(static_cast<uint32_t>(entrances.size()))];
+        
+        // Rotation to face outward from slope
+        float rotation = mRng->nextFloatRange(0.0f, 6.28318f);
+        
+        createReference(entranceId, cellId, worldX, worldY, worldZ, rotation, 1.0f);
+        
+        // Generate interior
+        std::string interiorName = "Cave_" + std::to_string(mState.seed) + "_" + 
+                                   std::to_string(cellX) + "_" + std::to_string(cellY);
+        
+        int roomCount = mRng->nextIntRange(cdp.caveMinRooms, cdp.caveMaxRooms);
+        generateCaveInterior(interiorName, roomCount);
+    }
+    
+    void ProceduralGenerator::generateDungeon(int cellX, int cellY, float worldX, float worldY)
+    {
+        const CaveDungeonParams& cdp = mState.caveDungeon;
+        
+        // Get dungeon entrance from asset library
+        std::vector<std::string> entrances;
+        if (mState.assetLibrary)
+        {
+            entrances = getObjectsFromAssetLibrary(AssetCategory::DungeonEntrance);
+        }
+        
+        if (entrances.empty())
+        {
+            entrances = {"ex_ruins_entrance_01", "ex_ruins_door_01"};
+        }
+        
+        std::string cellId = "#" + std::to_string(cellX) + ", " + std::to_string(cellY);
+        float worldZ = generateHeight(worldX, worldY);
+        
+        // Place entrance
+        std::string entranceId = entrances[mRng->nextInt(static_cast<uint32_t>(entrances.size()))];
+        float rotation = mRng->nextFloatRange(0.0f, 6.28318f);
+        
+        createReference(entranceId, cellId, worldX, worldY, worldZ, rotation, 1.0f);
+        
+        // Generate interior for each floor
+        for (int floor = 0; floor < cdp.dungeonFloors; ++floor)
+        {
+            std::string interiorName = "Dungeon_" + std::to_string(mState.seed) + "_" + 
+                                       std::to_string(cellX) + "_" + std::to_string(cellY) +
+                                       "_Floor" + std::to_string(floor);
+            
+            int roomCount = mRng->nextIntRange(cdp.dungeonMinRooms, cdp.dungeonMaxRooms);
+            generateDungeonInterior(interiorName, roomCount, floor);
+        }
+    }
+    
+    void ProceduralGenerator::generateCaveInterior(const std::string& cellName, int roomCount)
+    {
+        // Create interior cell
+        CSMWorld::IdTree& cellTable = dynamic_cast<CSMWorld::IdTree&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
+        
+        ESM::RefId refId = ESM::RefId::stringRefId(cellName);
+        int existingRow = cellTable.searchId(refId);
+        
+        if (existingRow >= 0 && !mState.overwriteExisting)
+            return;
+        
+        if (existingRow < 0)
+        {
+            auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, cellName);
+            
+            int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            
+            // Dark cave lighting
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            if (ambientColumn >= 0)
+            {
+                int ambientColor = (20 << 16) | (20 << 8) | 25; // Very dark blue-ish
+                createCmd->addValue(ambientColumn, ambientColor);
+            }
+            
+            mDocument.getUndoStack().push(createCmd.release());
+        }
+        
+        // Generate BSP-based cave layout with cave-specific objects
+        generateBSPInterior(cellName, roomCount);
+        
+        // Add cave-specific decorations (stalactites, rocks, etc.)
+        std::vector<std::string> caveRocks;
+        if (mState.assetLibrary)
+        {
+            caveRocks = getObjectsFromAssetLibrary(AssetCategory::CaveInterior);
+        }
+        
+        // Place some rocks/stalactites if available
+        if (!caveRocks.empty())
+        {
+            int decorCount = roomCount * 3;
+            float roomSpread = mState.caveDungeon.caveRoomSizeMax * std::sqrt(static_cast<float>(roomCount));
+            
+            for (int i = 0; i < decorCount; ++i)
+            {
+                float x = mRng->nextFloatRange(-roomSpread / 2, roomSpread / 2);
+                float y = mRng->nextFloatRange(-roomSpread / 2, roomSpread / 2);
+                float z = mRng->nextFloatRange(0.0f, mState.interiors.ceilingHeight);
+                
+                std::string rockId = caveRocks[mRng->nextInt(static_cast<uint32_t>(caveRocks.size()))];
+                createReference(rockId, cellName, x, y, z, mRng->nextFloatRange(0.0f, 6.28318f), 
+                               mRng->nextFloatRange(0.8f, 1.2f));
+            }
+        }
+    }
+    
+    void ProceduralGenerator::generateDungeonInterior(const std::string& cellName, int roomCount, int floor)
+    {
+        // Create interior cell
+        CSMWorld::IdTree& cellTable = dynamic_cast<CSMWorld::IdTree&>(
+            *mData.getTableModel(CSMWorld::UniversalId(CSMWorld::UniversalId::Type_Cells)));
+        
+        ESM::RefId refId = ESM::RefId::stringRefId(cellName);
+        int existingRow = cellTable.searchId(refId);
+        
+        if (existingRow >= 0 && !mState.overwriteExisting)
+            return;
+        
+        if (existingRow < 0)
+        {
+            auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, cellName);
+            
+            int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
+            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            
+            // Dungeon lighting (slightly less dark than caves)
+            int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_AmbientColour);
+            if (ambientColumn >= 0)
+            {
+                int ambientColor = (30 << 16) | (25 << 8) | 20; // Dim brownish
+                createCmd->addValue(ambientColumn, ambientColor);
+            }
+            
+            mDocument.getUndoStack().push(createCmd.release());
+        }
+        
+        // Generate BSP-based dungeon layout
+        generateBSPInterior(cellName, roomCount);
+        
+        // Add dungeon-specific decorations
+        std::vector<std::string> dungeonDecor;
+        if (mState.assetLibrary)
+        {
+            dungeonDecor = getObjectsFromAssetLibrary(AssetCategory::DungeonInterior);
+        }
+        
+        // Add loot containers if enabled
+        if (mState.caveDungeon.generateLoot)
+        {
+            std::vector<std::string> containers;
+            if (mState.assetLibrary)
+            {
+                containers = getObjectsFromAssetLibrary(AssetCategory::Container);
+            }
+            
+            if (containers.empty())
+            {
+                containers = {"chest_small_01", "chest_common_01", "urn_01"};
+            }
+            
+            int containerCount = roomCount / 2 + 1;
+            float roomSpread = mState.caveDungeon.dungeonRoomSizeMax * std::sqrt(static_cast<float>(roomCount));
+            
+            for (int i = 0; i < containerCount; ++i)
+            {
+                float x = mRng->nextFloatRange(-roomSpread / 2, roomSpread / 2);
+                float y = mRng->nextFloatRange(-roomSpread / 2, roomSpread / 2);
+                
+                std::string containerId = containers[mRng->nextInt(static_cast<uint32_t>(containers.size()))];
+                createReference(containerId, cellName, x, y, 0.0f, 
+                               mRng->nextFloatRange(0.0f, 6.28318f), 1.0f);
+            }
+        }
     }
 }

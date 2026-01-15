@@ -50,7 +50,7 @@ opencs_hdrs (model/tools
     )
 
 opencs_units (model/procs
-    noise worldanalyzer proceduralgenerator
+    noise worldanalyzer proceduralgenerator assetlibrary settlementgenerator infrastructuregenerator
     )
 
 opencs_hdrs (model/procs

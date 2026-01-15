@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "assetlibrary.hpp"
 #include "noise.hpp"
 #include "proceduralstate.hpp"
 
@@ -23,6 +24,21 @@ namespace CSMProcs
 {
     /// Progress callback function type
     using ProgressCallback = std::function<void(int current, int total, const std::string& message)>;
+
+    /// Settlement location data
+    struct SettlementLocation
+    {
+        int cellX = 0;
+        int cellY = 0;
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float centerZ = 0.0f;
+        float radius = 0.0f;
+        SettlementType type = SettlementType::Village;
+        std::string name;
+        std::vector<std::string> buildingIds; // Generated building references
+        std::vector<std::string> interiorIds; // Generated interior cell names
+    };
 
     /// Main procedural world generator
     class ProceduralGenerator
@@ -57,6 +73,12 @@ namespace CSMProcs
         /// Generate pathgrids
         bool generatePathgrids();
         
+        /// Generate settlements
+        bool generateSettlements();
+        
+        /// Generate caves and dungeons
+        bool generateCavesAndDungeons();
+        
         /// Preview a single cell
         /// @return true if preview was successful
         bool previewCell(int cellX, int cellY);
@@ -80,6 +102,9 @@ namespace CSMProcs
         std::unique_ptr<VoronoiNoise> mVoronoi;
         std::unique_ptr<RandomGenerator> mRng;
         
+        // Generated settlements for linking
+        std::vector<SettlementLocation> mGeneratedSettlements;
+        
         /// Initialize noise generators with current seed
         void initializeNoise();
         
@@ -102,8 +127,15 @@ namespace CSMProcs
         void createReference(const std::string& objectId, const std::string& cellId,
                             float x, float y, float z, float rotation, float scale);
         
+        /// Create a reference and return its ID
+        std::string createReferenceWithId(const std::string& objectId, const std::string& cellId,
+                            float x, float y, float z, float rotation, float scale);
+        
         /// Select appropriate object based on terrain and rules
         std::string selectObject(const std::string& category, float terrainHeight, float slope) const;
+        
+        /// Select object from asset library
+        std::string selectAssetFromLibrary(AssetCategory category) const;
         
         /// Get slope at position
         float getSlopeAt(float worldX, float worldY) const;
@@ -113,6 +145,9 @@ namespace CSMProcs
         
         /// Create an interior cell
         void createInterior(const std::string& name, int roomCount);
+        
+        /// Create an interior cell linked to a building
+        void createBuildingInterior(const std::string& buildingRefId, const std::string& buildingType);
         
         /// Generate BSP-based interior layout
         void generateBSPInterior(const std::string& cellName, int roomCount);
@@ -126,8 +161,49 @@ namespace CSMProcs
         /// Get list of objects from reference for given category
         std::vector<std::string> getObjectsFromReference(const std::string& category) const;
         
+        /// Get list of objects from asset library for given category
+        std::vector<std::string> getObjectsFromAssetLibrary(AssetCategory category) const;
+        
         /// Calculate total cells to generate
         int getTotalCells() const;
+        
+        // Settlement generation helpers
+        
+        /// Find suitable locations for settlements
+        std::vector<SettlementLocation> findSettlementLocations();
+        
+        /// Generate a single settlement
+        void generateSettlement(SettlementLocation& location);
+        
+        /// Generate settlement walls
+        void generateSettlementWalls(const SettlementLocation& location);
+        
+        /// Generate settlement roads
+        void generateSettlementRoads(const SettlementLocation& location);
+        
+        /// Place buildings in a settlement
+        void placeSettlementBuildings(SettlementLocation& location);
+        
+        /// Generate interiors for settlement buildings
+        void generateSettlementInteriors(SettlementLocation& location);
+        
+        /// Generate a cave entrance and interior
+        void generateCave(int cellX, int cellY, float worldX, float worldY);
+        
+        /// Generate a dungeon entrance and interior
+        void generateDungeon(int cellX, int cellY, float worldX, float worldY);
+        
+        /// Generate cave interior layout
+        void generateCaveInterior(const std::string& cellName, int roomCount);
+        
+        /// Generate dungeon interior layout
+        void generateDungeonInterior(const std::string& cellName, int roomCount, int floor);
+        
+        /// Check if a location is suitable for a settlement
+        bool isLocationSuitableForSettlement(float worldX, float worldY, float radius) const;
+        
+        /// Calculate settlement radius based on type
+        float calculateSettlementRadius(SettlementType type) const;
     };
 }
 
