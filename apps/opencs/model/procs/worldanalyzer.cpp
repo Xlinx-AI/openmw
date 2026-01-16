@@ -37,6 +37,69 @@ namespace CSMProcs
         return false;
     }
     
+    bool WorldAnalyzer::parseCoordinateRange(const std::string& input, int& minX, int& minY, int& maxX, int& maxY) const
+    {
+        if (input.empty())
+            return false;
+        
+        // Try to parse range format: "#x1,y1 to #x2,y2" or "#x1, y1 to #x2, y2"
+        std::regex rangePattern(R"(#(-?\d+)\s*,\s*(-?\d+)\s+to\s+#(-?\d+)\s*,\s*(-?\d+))");
+        std::smatch match;
+        
+        if (std::regex_match(input, match, rangePattern))
+        {
+            int x1 = std::stoi(match[1].str());
+            int y1 = std::stoi(match[2].str());
+            int x2 = std::stoi(match[3].str());
+            int y2 = std::stoi(match[4].str());
+            
+            // Ensure min <= max
+            minX = std::min(x1, x2);
+            maxX = std::max(x1, x2);
+            minY = std::min(y1, y2);
+            maxY = std::max(y1, y2);
+            
+            return true;
+        }
+        
+        // Try single cell format: "#x,y"
+        std::regex singlePattern(R"(#(-?\d+)\s*,\s*(-?\d+))");
+        if (std::regex_match(input, match, singlePattern))
+        {
+            minX = maxX = std::stoi(match[1].str());
+            minY = maxY = std::stoi(match[2].str());
+            return true;
+        }
+        
+        // If input is just "#", include all exterior cells
+        if (input == "#")
+        {
+            // Use a very large range to include all cells
+            minX = minY = -10000;
+            maxX = maxY = 10000;
+            return true;
+        }
+        
+        return false;
+    }
+    
+    bool WorldAnalyzer::matchesCellFilter(int cellX, int cellY, const std::string& cellIdPrefix,
+                                          bool hasRange, int minX, int minY, int maxX, int maxY) const
+    {
+        if (cellIdPrefix.empty())
+            return true;
+        
+        // If a coordinate range was parsed, use it
+        if (hasRange)
+        {
+            return cellX >= minX && cellX <= maxX && cellY >= minY && cellY <= maxY;
+        }
+        
+        // Otherwise, fall back to substring matching (original behavior)
+        std::string cellId = "#" + std::to_string(cellX) + "," + std::to_string(cellY);
+        return cellId.find(cellIdPrefix) != std::string::npos;
+    }
+    
     float WorldAnalyzer::calculateRoughness(const std::vector<float>& heights, int width, int height) const
     {
         if (heights.empty() || width < 2 || height < 2)
@@ -95,6 +158,10 @@ namespace CSMProcs
     {
         const auto& landCollection = mData.getLand();
         
+        // Parse coordinate range if provided
+        int minX, minY, maxX, maxY;
+        bool hasRange = parseCoordinateRange(cellIdPrefix, minX, minY, maxX, maxY);
+        
         std::vector<float> allHeights;
         std::vector<float> roughnessValues;
         
@@ -107,13 +174,9 @@ namespace CSMProcs
             const CSMWorld::Land& land = record.get();
             std::string landId = CSMWorld::Land::createUniqueRecordId(land.mX, land.mY);
             
-            // Check prefix filter
-            if (!cellIdPrefix.empty())
-            {
-                std::string cellId = "#" + std::to_string(land.mX) + "," + std::to_string(land.mY);
-                if (cellId.find(cellIdPrefix) == std::string::npos)
-                    continue;
-            }
+            // Check cell filter
+            if (!matchesCellFilter(land.mX, land.mY, cellIdPrefix, hasRange, minX, minY, maxX, maxY))
+                continue;
             
             // Load land data if available
             if (land.mDataTypes & ESM::Land::DATA_VHGT)
@@ -165,6 +228,10 @@ namespace CSMProcs
         const auto& landCollection = mData.getLand();
         const auto& ltexCollection = mData.getLandTextures();
         
+        // Parse coordinate range if provided
+        int minX, minY, maxX, maxY;
+        bool hasRange = parseCoordinateRange(cellIdPrefix, minX, minY, maxX, maxY);
+        
         std::map<int, int> textureUsageCount;
         int totalTextures = 0;
         
@@ -176,13 +243,9 @@ namespace CSMProcs
                 
             const CSMWorld::Land& land = record.get();
             
-            // Check prefix filter
-            if (!cellIdPrefix.empty())
-            {
-                std::string cellId = "#" + std::to_string(land.mX) + "," + std::to_string(land.mY);
-                if (cellId.find(cellIdPrefix) == std::string::npos)
-                    continue;
-            }
+            // Check cell filter
+            if (!matchesCellFilter(land.mX, land.mY, cellIdPrefix, hasRange, minX, minY, maxX, maxY))
+                continue;
             
             // Load texture data if available
             if (land.mDataTypes & ESM::Land::DATA_VTEX)
@@ -236,6 +299,10 @@ namespace CSMProcs
         const auto& refs = mData.getReferences();
         const auto& cells = mData.getCells();
         
+        // Parse coordinate range if provided
+        int minX, minY, maxX, maxY;
+        bool hasRange = parseCoordinateRange(cellIdPrefix, minX, minY, maxX, maxY);
+        
         // Count objects by type
         std::map<std::string, int> objectCounts;
         std::vector<std::pair<float, float>> allPositions;
@@ -254,11 +321,16 @@ namespace CSMProcs
             // Only exterior cells
             if (!cell.isExterior())
                 continue;
-                
+            
+            // Parse cell coordinates and check filter
             std::string cellId = cell.mId.getRefIdString();
-            if (cellIdPrefix.empty() || cellId.find(cellIdPrefix) != std::string::npos)
+            int cellX, cellY;
+            if (parseCellCoords(cellId, cellX, cellY))
             {
-                validCells.insert(cellId);
+                if (matchesCellFilter(cellX, cellY, cellIdPrefix, hasRange, minX, minY, maxX, maxY))
+                {
+                    validCells.insert(cellId);
+                }
             }
         }
         

@@ -365,8 +365,14 @@ namespace CSMProcs
             
             // Set cell as exterior (not interior)
             int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
-            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
-            createCmd->addNestedValue(parentIndex, interiorIndex, false);
+            if (parentIndex >= 0)
+            {
+                int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+                if (interiorIndex >= 0)
+                {
+                    createCmd->addNestedValue(parentIndex, interiorIndex, false);
+                }
+            }
             
             // Set water level
             int waterColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_WaterLevel);
@@ -922,8 +928,14 @@ namespace CSMProcs
             
             // Set as interior
             int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
-            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
-            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            if (parentIndex >= 0)
+            {
+                int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+                if (interiorIndex >= 0)
+                {
+                    createCmd->addNestedValue(parentIndex, interiorIndex, true);
+                }
+            }
             
             // Set ambient lighting
             int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
@@ -1903,8 +1915,14 @@ namespace CSMProcs
             auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, cellName);
             
             int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
-            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
-            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            if (parentIndex >= 0)
+            {
+                int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+                if (interiorIndex >= 0)
+                {
+                    createCmd->addNestedValue(parentIndex, interiorIndex, true);
+                }
+            }
             
             // Dark cave lighting
             int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
@@ -1963,8 +1981,14 @@ namespace CSMProcs
             auto createCmd = std::make_unique<CSMWorld::CreateCommand>(cellTable, cellName);
             
             int parentIndex = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Cell);
-            int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
-            createCmd->addNestedValue(parentIndex, interiorIndex, true);
+            if (parentIndex >= 0)
+            {
+                int interiorIndex = cellTable.findNestedColumnIndex(parentIndex, CSMWorld::Columns::ColumnId_Interior);
+                if (interiorIndex >= 0)
+                {
+                    createCmd->addNestedValue(parentIndex, interiorIndex, true);
+                }
+            }
             
             // Dungeon lighting (slightly less dark than caves)
             int ambientColumn = cellTable.findColumnIndex(CSMWorld::Columns::ColumnId_Ambient);
