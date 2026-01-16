@@ -163,7 +163,7 @@ namespace CSVProcs
         QHBoxLayout* refInputLayout = new QHBoxLayout();
         refInputLayout->addWidget(new QLabel(tr("Reference:"), refGroup));
         mReferenceWorldspace = new QLineEdit(refGroup);
-        mReferenceWorldspace->setPlaceholderText(tr("e.g., #-2,-2 to #5,5 for Morrowind area"));
+        mReferenceWorldspace->setPlaceholderText(tr("e.g., # or #-2,-2 to #5,5"));
         mReferenceWorldspace->setEnabled(false);
         connect(mReferenceWorldspace, &QLineEdit::textChanged, this, &ProceduralGeneratorDialog::onReferenceChanged);
         refInputLayout->addWidget(mReferenceWorldspace, 1);
@@ -175,8 +175,8 @@ namespace CSVProcs
         
         refLayout->addLayout(refInputLayout);
         
-        QLabel* refHint = new QLabel(tr("Tip: Use cell coordinate prefix like '#' to analyze all exterior cells,\n"
-                                        "or specify a range to analyze a specific area."), refGroup);
+        QLabel* refHint = new QLabel(tr("Tip: Use '#' to analyze all exterior cells,\n"
+                                        "'#x,y' for a single cell, or '#x1,y1 to #x2,y2' for a range."), refGroup);
         refHint->setStyleSheet("color: gray; font-size: 10px;");
         refLayout->addWidget(refHint);
         

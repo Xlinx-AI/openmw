@@ -54,6 +54,15 @@ namespace CSMProcs
         
         /// Calculate standard deviation
         static float calculateStdDev(const std::vector<float>& values, float mean);
+        
+        /// Parse coordinate range from string
+        /// Supports formats like "#-2,-2 to #5,5" or just "#" for all cells
+        /// Returns true if a range was parsed, false to use substring matching
+        bool parseCoordinateRange(const std::string& input, int& minX, int& minY, int& maxX, int& maxY) const;
+        
+        /// Check if a cell coordinate is within the filter criteria
+        bool matchesCellFilter(int cellX, int cellY, const std::string& cellIdPrefix,
+                               bool hasRange, int minX, int minY, int maxX, int maxY) const;
     };
 }
 
